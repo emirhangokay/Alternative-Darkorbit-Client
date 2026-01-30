@@ -996,6 +996,44 @@
       window.addEventListener("load", notifyHeight);
       window.addEventListener("resize", notifyHeight);
 
+      // Sync authoritative settings from the main process on load
+      ipcRenderer.invoke("settings:get").then((s) => {
+        if (s) {
+          const defaults = {
+            homepage: "http://darkorbit.com/",
+            gpuAcceleration: true,
+            clientName: "Your Name",
+            rankIcon: "none",
+            useCustomUA: false,
+            customUserAgent: "",
+          };
+          const merged = Object.assign(defaults, s || {});
+          localStorage.setItem("do-settings", JSON.stringify(merged));
+          try {
+            updateLogo();
+            rankSelect.value = merged.rankIcon || "none";
+            updateRankPreview();
+          } catch (_err) {}
+        }
+      });
+
+      // Receive settings updates from main and sync localStorage/UI
+      ipcRenderer.on("settings:updated", (_e, newSettings) => {
+        try {
+          localStorage.setItem("do-settings", JSON.stringify(newSettings));
+          updateLogo();
+          if (settingsModal && settingsModal.classList && settingsModal.classList.contains("open")) {
+            homepageInput.value = newSettings.homepage || "http://darkorbit.com/";
+            useCustomUA.checked = !!newSettings.useCustomUA;
+            customUAInput.value = newSettings.customUserAgent || "";
+            gpuAcceleration.checked = newSettings.gpuAcceleration;
+            clientNameInput.value = newSettings.clientName || "Your Name";
+            rankSelect.value = newSettings.rankIcon || "none";
+            updateRankPreview();
+          }
+        } catch (_err) {}
+      });
+
       const renderTabs = () => {
         tabStrip.innerHTML = "";
         state.tabs.forEach((tab) => {

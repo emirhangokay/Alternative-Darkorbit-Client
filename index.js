@@ -764,9 +764,29 @@ ipcMain.on("settings:update", (_event, newSettings) => {
         tab.view.webContents.reload();
       }
     });
+
+    // Persist merged settings to disk so they survive restarts
+    try {
+      fs.writeFileSync(SETTINGS_FILE, JSON.stringify(settings, null, 2), "utf8");
+      console.log("Settings persisted to file after update.");
+    } catch (err) {
+      console.error("Failed to persist settings to file:", err);
+    }
+
+    // Notify renderer(s) about updated settings so UI and localStorage can sync
+    try {
+      if (mainWindow && mainWindow.webContents) {
+        mainWindow.webContents.send("settings:updated", settings);
+      }
+    } catch (_err) {}
   } catch (err) {
     console.error("Error applying settings:", err);
   }
+});
+
+// Expose a simple handler so renderer can retrieve the authoritative settings
+ipcMain.handle("settings:get", () => {
+  return settings;
 });
 
 ipcMain.on("app:restart", () => {

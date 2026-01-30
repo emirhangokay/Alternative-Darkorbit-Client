@@ -1,0 +1,1455 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>DarkOrbit Client</title>
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+    />
+    <style>
+      :root {
+        --bg-primary: #0f1419;
+        --bg-secondary: #1a1f2e;
+        --bg-tertiary: #252d3d;
+        --accent: #00d4ff;
+        --accent-hover: #00e6ff;
+        --success: #4ade80;
+        --danger: #ff4757;
+        --warning: #ffa502;
+        --text-primary: #f0f4f8;
+        --text-secondary: #a0a9b8;
+        --border-color: #2a3342;
+      }
+
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      html,
+      body {
+        width: 100%;
+        height: 100%;
+        font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        color: var(--text-primary);
+        background: var(--bg-primary);
+        overflow: hidden;
+      }
+
+      body {
+        display: flex;
+        flex-direction: column;
+        -webkit-user-select: none;
+      }
+
+      header {
+        display: flex;
+        flex-direction: column;
+        gap: 0;
+        background: var(--bg-secondary);
+        border-bottom: 1px solid var(--border-color);
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        z-index: 10;
+      }
+
+      .top-row {
+        display: grid;
+        grid-template-columns: auto 1fr auto;
+        align-items: center;
+        gap: 12px;
+        padding: 8px 12px;
+        -webkit-app-region: drag;
+      }
+
+      .logo {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        -webkit-app-region: drag;
+      }
+
+      .logo-mark {
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        background: linear-gradient(135deg, var(--accent), #00a8cc);
+        background-size: cover;
+        background-position: center;
+        box-shadow: 0 4px 12px rgba(0, 212, 255, 0.25);
+        -webkit-app-region: drag;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+      }
+
+      .logo-text {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        gap: 1px;
+        -webkit-app-region: drag;
+      }
+
+      .logo-text strong {
+        font-weight: 700;
+        letter-spacing: 0.3px;
+        font-size: 13px;
+        color: var(--text-primary);
+      }
+
+      .logo-text span {
+        color: var(--text-secondary);
+        font-size: 11px;
+        font-weight: 500;
+      }
+
+      .toolbar {
+        display: grid;
+        grid-template-columns: auto auto auto 1fr auto;
+        align-items: center;
+        gap: 8px;
+        padding: 0 8px;
+        -webkit-app-region: drag;
+      }
+
+      .controls {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        -webkit-app-region: no-drag;
+      }
+
+      .btn {
+        appearance: none;
+        border: 1px solid var(--border-color);
+        background: var(--bg-tertiary);
+        color: var(--text-primary);
+        padding: 6px 12px;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        font-weight: 500;
+        font-size: 12px;
+        -webkit-app-region: no-drag;
+      }
+
+      .btn:hover {
+        background: var(--bg-secondary);
+        border-color: var(--accent);
+        color: var(--accent);
+      }
+
+      .btn.icon {
+        width: 32px;
+        height: 32px;
+        padding: 0;
+      }
+
+      .address-bar {
+        height: 36px;
+        background: var(--bg-tertiary);
+        border: 1px solid var(--border-color);
+        border-radius: 6px;
+        display: grid;
+        grid-template-columns: 1fr auto;
+        align-items: center;
+        padding: 0 12px 0 12px;
+        gap: 8px;
+        -webkit-app-region: no-drag;
+      }
+
+      .address-bar:focus-within {
+        border-color: var(--accent);
+        background: var(--bg-secondary);
+      }
+
+      .address-bar input {
+        width: 100%;
+        background: transparent;
+        border: none;
+        color: var(--text-primary);
+        font-size: 13px;
+        outline: none;
+      }
+
+      .address-bar input::placeholder {
+        color: var(--text-secondary);
+      }
+
+      .status-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--text-secondary);
+        box-shadow: none;
+        transition: background 0.2s ease;
+      }
+
+      .status-dot.loading {
+        background: var(--accent);
+        animation: status-pulse 1s ease-in-out infinite;
+      }
+
+      @keyframes status-pulse {
+        0%, 100% {
+          box-shadow: 0 0 0 0 rgba(0, 212, 255, 0.4);
+        }
+        50% {
+          box-shadow: 0 0 0 4px rgba(0, 212, 255, 0);
+        }
+      }
+
+      .window-controls {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        -webkit-app-region: no-drag;
+      }
+
+      .tab-container {
+        background: var(--bg-primary);
+        border-top: 1px solid var(--border-color);
+        padding: 0;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        padding: 4px 8px;
+      }
+
+      .tabs {
+        display: flex;
+        gap: 4px;
+        flex: 1;
+        overflow-x: auto;
+        overflow-y: hidden;
+        padding: 0;
+        scrollbar-width: thin;
+        scrollbar-color: var(--border-color) transparent;
+      }
+
+      .tabs::-webkit-scrollbar {
+        height: 6px;
+      }
+
+      .tabs::-webkit-scrollbar-track {
+        background: transparent;
+      }
+
+      .tabs::-webkit-scrollbar-thumb {
+        background: var(--border-color);
+        border-radius: 3px;
+      }
+
+      .tabs::-webkit-scrollbar-thumb:hover {
+        background: var(--text-secondary);
+      }
+
+      .tab {
+        min-width: 120px;
+        max-width: 200px;
+        height: 32px;
+        border-radius: 6px;
+        border: 1px solid var(--border-color);
+        background: var(--bg-secondary);
+        display: grid;
+        grid-template-columns: 1fr auto;
+        align-items: center;
+        padding: 0 10px;
+        gap: 8px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        color: var(--text-secondary);
+        outline: none;
+        position: relative;
+      }
+
+      .tab:hover {
+        border-color: var(--border-color);
+        background: var(--bg-tertiary);
+        color: var(--text-primary);
+      }
+
+      .tab.active {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: var(--bg-primary);
+      }
+
+      .tab .title {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font-weight: 500;
+        text-align: left;
+        font-size: 12px;
+      }
+
+      .tab .title small {
+        display: none;
+        font-size: 10px;
+      }
+
+      .tab .loader {
+        width: 4px;
+        height: 4px;
+        border-radius: 50%;
+        background: currentColor;
+        position: absolute;
+        left: 8px;
+        top: 14px;
+        opacity: 0;
+        animation: none;
+      }
+
+      .tab.loading .loader {
+        opacity: 1;
+        animation: tab-pulse 1s ease-in-out infinite;
+      }
+
+      @keyframes tab-pulse {
+        0%, 100% {
+          opacity: 0.5;
+        }
+        50% {
+          opacity: 1;
+        }
+      }
+
+      .tab .close-btn {
+        appearance: none;
+        background: transparent;
+        border: none;
+        color: currentColor;
+        width: 16px;
+        height: 16px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        font-size: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        -webkit-app-region: no-drag;
+      }
+
+      .tab .close-btn:hover {
+        background: rgba(255, 71, 87, 0.2);
+        color: var(--danger);
+      }
+
+      .tab[draggable="true"] {
+        cursor: grab;
+      }
+
+      .tab[draggable="true"]:active {
+        cursor: grabbing;
+      }
+
+      .add-tab {
+        width: 28px;
+        height: 28px;
+        border-radius: 6px;
+        border: 1px solid var(--border-color);
+        background: var(--bg-secondary);
+        color: var(--text-primary);
+        cursor: pointer;
+        font-weight: 600;
+        transition: all 0.2s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 14px;
+        -webkit-app-region: no-drag;
+      }
+
+      .add-tab:hover {
+        background: var(--bg-tertiary);
+        border-color: var(--accent);
+        color: var(--accent);
+      }
+
+      .find-bar {
+        position: absolute;
+        right: 120px;
+        top: 50%;
+        transform: translateY(-50%);
+        display: none;
+        align-items: center;
+        gap: 6px;
+        background: var(--bg-secondary);
+        border: 1px solid var(--border-color);
+        border-radius: 6px;
+        padding: 6px 8px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        -webkit-app-region: no-drag;
+      }
+
+      .find-bar input {
+        background: var(--bg-tertiary);
+        border: 1px solid var(--border-color);
+        border-radius: 4px;
+        color: var(--text-primary);
+        padding: 6px 8px;
+        min-width: 180px;
+        font-size: 12px;
+      }
+
+      .find-bar input::placeholder {
+        color: var(--text-secondary);
+      }
+
+      .find-btn {
+        border: 1px solid var(--border-color);
+        background: var(--bg-tertiary);
+        color: var(--text-primary);
+        border-radius: 4px;
+        padding: 4px 6px;
+        cursor: pointer;
+        font-size: 11px;
+        transition: all 0.2s ease;
+      }
+
+      .find-btn:hover {
+        border-color: var(--accent);
+        background: var(--accent);
+        color: var(--bg-primary);
+      }
+
+      body.fullscreen header,
+      body.fullscreen .find-bar {
+        display: none !important;
+        height: 0 !important;
+        min-height: 0 !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        border: 0 !important;
+      }
+
+      .win-btn {
+        width: 32px;
+        height: 32px;
+        border-radius: 6px;
+        border: 1px solid var(--border-color);
+        background: var(--bg-tertiary);
+        color: var(--text-primary);
+        cursor: pointer;
+        font-weight: 600;
+        font-size: 12px;
+        transition: all 0.2s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        -webkit-app-region: no-drag;
+      }
+
+      .win-btn:hover {
+        border-color: var(--accent);
+        background: var(--bg-secondary);
+        color: var(--accent);
+      }
+
+      .win-btn.close:hover {
+        background: var(--danger);
+        border-color: var(--danger);
+        color: white;
+      }
+
+      .footer {
+        height: 0;
+      }
+
+      /* Context Menu Styles */
+      .context-menu {
+        position: fixed;
+        background: var(--bg-secondary);
+        border: 1px solid var(--border-color);
+        border-radius: 6px;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+        z-index: 10000;
+        display: none;
+        flex-direction: column;
+        min-width: 220px;
+        overflow: hidden;
+      }
+
+      .context-menu.visible {
+        display: flex;
+      }
+
+      .context-menu-item {
+        padding: 10px 16px;
+        cursor: pointer;
+        color: var(--text-primary);
+        transition: all 0.15s ease;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 13px;
+        white-space: nowrap;
+        user-select: none;
+        border: none;
+        background: transparent;
+        width: 100%;
+        text-align: left;
+      }
+
+      .context-menu-item:hover {
+        background: var(--bg-tertiary);
+        color: var(--accent);
+      }
+
+      .context-menu-item.disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+        pointer-events: none;
+      }
+
+      .context-menu-item.disabled:hover {
+        background: transparent;
+        color: var(--text-primary);
+      }
+
+      .context-menu-separator {
+        height: 1px;
+        background: var(--border-color);
+        margin: 4px 0;
+      }
+
+      .context-menu-item-icon {
+        width: 16px;
+        text-align: center;
+        font-size: 12px;
+      }
+
+      .modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.6);
+        z-index: 2000;
+        align-items: center;
+        justify-content: center;
+        pointer-events: none;
+      }
+
+      .modal.open {
+        display: flex;
+        pointer-events: auto;
+      }
+
+      .modal-content {
+        background: var(--bg-secondary);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        padding: 24px;
+        max-width: 500px;
+        width: 90%;
+        max-height: 80vh;
+        overflow-y: auto;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+        position: relative;
+        z-index: 2001;
+        pointer-events: auto;
+      }
+
+      .modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+        padding-bottom: 12px;
+        border-bottom: 1px solid var(--border-color);
+      }
+
+      .modal-header h2 {
+        font-size: 18px;
+        font-weight: 700;
+        margin: 0;
+      }
+
+      .modal-close {
+        background: none;
+        border: none;
+        color: var(--text-secondary);
+        cursor: pointer;
+        font-size: 24px;
+        padding: 0;
+        width: 24px;
+        height: 24px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: color 0.2s ease;
+      }
+
+      .modal-close:hover {
+        color: var(--text-primary);
+      }
+
+      .setting-group {
+        margin-bottom: 20px;
+      }
+
+      .setting-group label {
+        display: block;
+        font-weight: 600;
+        font-size: 14px;
+        margin-bottom: 8px;
+        color: var(--text-primary);
+      }
+
+      .setting-group input[type="text"],
+      .setting-group input[type="url"],
+      .setting-group select {
+        width: 100%;
+        padding: 8px 12px;
+        background: var(--bg-tertiary);
+        border: 1px solid var(--border-color);
+        border-radius: 6px;
+        color: var(--text-primary);
+        font-size: 13px;
+        font-family: inherit;
+      }
+
+      .setting-group input[type="text"]:focus,
+      .setting-group input[type="url"]:focus,
+      .setting-group select:focus {
+        outline: none;
+        border-color: var(--accent);
+        background: var(--bg-secondary);
+      }
+
+      .setting-group select {
+        cursor: pointer;
+      }
+
+      .checkbox-group {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .checkbox-group input[type="checkbox"] {
+        width: 18px;
+        height: 18px;
+        cursor: pointer;
+        accent-color: var(--accent);
+      }
+
+      .checkbox-group label {
+        margin: 0;
+        cursor: pointer;
+        font-weight: 500;
+      }
+
+      .modal-actions {
+        display: flex;
+        gap: 10px;
+        margin-top: 24px;
+        padding-top: 12px;
+        border-top: 1px solid var(--border-color);
+      }
+
+      .modal-actions button {
+        flex: 1;
+        padding: 8px 16px;
+        border: 1px solid var(--border-color);
+        border-radius: 6px;
+        cursor: pointer;
+        font-weight: 600;
+        font-size: 13px;
+        transition: all 0.2s ease;
+      }
+
+      .modal-actions .btn-save {
+        background: var(--accent);
+        color: var(--bg-primary);
+        border-color: var(--accent);
+      }
+
+      .modal-actions .btn-save:hover {
+        background: var(--accent-hover);
+        border-color: var(--accent-hover);
+      }
+
+      .modal-actions .btn-cancel {
+        background: var(--bg-tertiary);
+        color: var(--text-primary);
+      }
+
+      .modal-actions .btn-cancel:hover {
+        background: var(--bg-tertiary);
+        border-color: var(--accent);
+        color: var(--accent);
+      }
+    </style>
+  </head>
+  <body>
+    <header id="chrome-shell">
+      <div class="top-row">
+        <div class="logo">
+          <div class="logo-mark"></div>
+          <div class="logo-text">
+            <strong>DarkOrbit</strong>
+            <span>Client</span>
+          </div>
+        </div>
+        <div class="toolbar">
+          <div class="controls">
+            <button class="btn icon" id="back" title="Back (Alt+Left)">↶</button>
+            <button class="btn icon" id="forward" title="Forward (Alt+Right)">↷</button>
+            <button class="btn icon" id="reload" title="Reload (Ctrl+R)">⟳</button>
+          </div>
+          <div class="address-bar">
+            <input
+              id="address"
+              type="text"
+              spellcheck="false"
+              placeholder="Adres veya URL..."
+            />
+            <div class="status-dot" id="status"></div>
+          </div>
+          <button class="btn" id="clear-cookies" title="Clear cookies">Cookies</button>
+          <button class="btn icon" id="home" title="Home">🏠</button>
+          <button class="btn icon" id="settings" title="Settings">⚙️</button>
+          <div class="find-bar" id="find-bar">
+            <input id="find-input" type="text" placeholder="Find in page..." />
+            <button class="find-btn" id="find-prev" title="Previous">↑</button>
+            <button class="find-btn" id="find-next" title="Next">↓</button>
+            <button class="find-btn" id="find-close" title="Close">✕</button>
+          </div>
+        </div>
+        <div class="window-controls">
+          <button class="win-btn minimize" id="win-min" title="Minimize">−</button>
+          <button class="win-btn max" id="win-max" title="Maximize">□</button>
+          <button class="win-btn close" id="win-close" title="Close">✕</button>
+        </div>
+      </div>
+      <div class="tab-container">
+        <div class="tabs" id="tab-strip"></div>
+        <button class="add-tab" id="add-tab" title="New tab (Ctrl+T)">+</button>
+      </div>
+    </header>
+    <div class="footer"></div>
+
+    <!-- Context Menu -->
+    <div class="context-menu" id="context-menu"></div>
+
+    <!-- Settings Modal -->
+    <div class="modal" id="settings-modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>Settings</h2>
+          <button class="modal-close" id="settings-close">✕</button>
+        </div>
+
+        <div class="setting-group">
+          <label for="client-name">Client Name</label>
+          <input
+            type="text"
+            id="client-name"
+            placeholder="Your Name"
+          />
+        </div>
+
+        <div class="setting-group">
+          <label for="rank-select">Rank Icon</label>
+          <div style="display: flex; gap: 12px; align-items: flex-start;">
+            <select id="rank-select" style="flex: 1;">
+              <option value="none">No custom icon</option>
+            </select>
+            <div id="rank-preview" style="width: 48px; height: 48px; border-radius: 8px; background: linear-gradient(135deg, var(--accent), #00a8cc); flex-shrink: 0; box-shadow: 0 4px 12px rgba(0, 212, 255, 0.25); background-size: cover; background-position: center;"></div>
+          </div>
+        </div>
+
+        <div class="setting-group">
+          <label for="homepage">Homepage</label>
+          <input
+            type="url"
+            id="homepage"
+            placeholder="https://example.com"
+          />
+        </div>
+
+        <div class="setting-group">
+          <label for="use-custom-ua">Custom User Agent</label>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <input type="checkbox" id="use-custom-ua" />
+            <input type="text" id="custom-ua" class="full-input" placeholder="Enter custom User Agent string" style="flex:1;" />
+          </div>
+          <small style="color:var(--text-secondary);">If enabled, this User Agent will be used for all tabs (except when DarkOrbit detection forces a specialized UA).</small>
+        </div>
+
+        <div class="setting-group">
+          <label>Performans Modu</label>
+          <div class="checkbox-group">
+            <input
+              type="checkbox"
+              id="gpu-acceleration"
+              checked
+            />
+            <label for="gpu-acceleration">GPU Acceleration (Hardware Acceleration)</label>
+          </div>
+        </div>
+
+        <div class="modal-actions">
+          <button class="btn-cancel" id="settings-cancel">Cancel</button>
+          <button class="btn-save" id="settings-save">Save</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer"></div>
+
+    <script>
+      const { ipcRenderer } = require("electron");
+      const tabStrip = document.getElementById("tab-strip");
+      const addTabButton = document.getElementById("add-tab");
+      const backBtn = document.getElementById("back");
+      const forwardBtn = document.getElementById("forward");
+      const reloadBtn = document.getElementById("reload");
+      const address = document.getElementById("address");
+      const statusDot = document.getElementById("status");
+      const chromeShell = document.getElementById("chrome-shell");
+      const winClose = document.getElementById("win-close");
+      const winMax = document.getElementById("win-max");
+      const winMin = document.getElementById("win-min");
+      const clearCookies = document.getElementById("clear-cookies");
+      const homeBtn = document.getElementById("home");
+      const settingsBtn = document.getElementById("settings");
+      const settingsModal = document.getElementById("settings-modal");
+      const settingsClose = document.getElementById("settings-close");
+      const settingsCancel = document.getElementById("settings-cancel");
+      const settingsSave = document.getElementById("settings-save");
+      const homepageInput = document.getElementById("homepage");
+      const useCustomUA = document.getElementById("use-custom-ua");
+      const customUAInput = document.getElementById("custom-ua");
+      const gpuAcceleration = document.getElementById("gpu-acceleration");
+      const clientNameInput = document.getElementById("client-name");
+      const rankSelect = document.getElementById("rank-select");
+      const rankPreview = document.getElementById("rank-preview");
+      const findBar = document.getElementById("find-bar");
+      const findInput = document.getElementById("find-input");
+      const findPrev = document.getElementById("find-prev");
+      const findNext = document.getElementById("find-next");
+      const findClose = document.getElementById("find-close");
+      const contextMenu = document.getElementById("context-menu");
+
+      const state = {
+        tabs: [],
+        activeId: null,
+      };
+
+      // Debug: Tüm elementleri kontrol et
+      console.log("=== DOM Elements Check ===");
+      console.log("settingsModal:", settingsModal);
+      console.log("settingsBtn:", settingsBtn);
+      console.log("homeBtn:", homeBtn);
+      console.log("===========================");
+
+      // Load settings from localStorage
+      const loadSettings = () => {
+        const saved = localStorage.getItem("do-settings");
+        return saved
+          ? JSON.parse(saved)
+          : {
+              homepage: "http://darkorbit.com/",
+              gpuAcceleration: true,
+              clientName: "Your Name",
+              rankIcon: "none",
+              useCustomUA: false,
+              customUserAgent: "",
+            };
+      };
+
+      // Save settings to localStorage and notify main process
+      const saveSettings = (settings) => {
+        localStorage.setItem("do-settings", JSON.stringify(settings));
+        // Main process'e gönder - dosyaya yazacak
+        ipcRenderer.send("settings:save-file", settings);
+      };
+
+      // Logo'yu güncelle
+      const updateLogo = () => {
+        const settings = loadSettings();
+        const logoText = document.querySelector(".logo-text strong");
+        const logoMark = document.querySelector(".logo-mark");
+        
+        if (logoText) {
+          logoText.textContent = settings.clientName || "Your Name";
+        }
+        
+        if (logoMark) {
+          if (settings.rankIcon && settings.rankIcon !== "none") {
+            // Rank image'ı yükle (tam görünüm için contain)
+            logoMark.style.backgroundImage = `url('./ranks/rank_${settings.rankIcon}.png')`;
+            logoMark.style.backgroundSize = "contain";
+            logoMark.style.backgroundPosition = "center";
+            logoMark.style.backgroundRepeat = "no-repeat";
+          } else {
+            // Default gradient
+            logoMark.style.backgroundImage = "none";
+            logoMark.style.background = "linear-gradient(135deg, var(--accent), #00a8cc)";
+            logoMark.style.backgroundSize = "cover";
+            logoMark.style.backgroundPosition = "center";
+            logoMark.style.backgroundRepeat = "no-repeat";
+          }
+        }
+      };
+
+      // Open settings modal
+      const openSettingsModal = () => {
+        console.log("Opening settings modal...");
+        console.log("Modal element:", settingsModal);
+        const settings = loadSettings();
+        homepageInput.value = settings.homepage;
+        useCustomUA.checked = !!settings.useCustomUA;
+        customUAInput.value = settings.customUserAgent || "";
+        gpuAcceleration.checked = settings.gpuAcceleration;
+        clientNameInput.value = settings.clientName || "Your Name";
+        rankSelect.value = settings.rankIcon || "none";
+        updateRankPreview();
+        settingsModal.classList.add("open");
+        console.log("Modal class:", settingsModal.className);
+        ipcRenderer.send("modal:open");
+      };
+
+      // Close settings modal
+      const closeSettingsModal = () => {
+        console.log("Closing settings modal...");
+        settingsModal.classList.remove("open");
+        ipcRenderer.send("modal:close");
+      };
+
+      // Update custom DNS visibility
+      const updateCustomDnsVisibility = () => {
+        // DNS removed (feature placeholder)
+      };
+
+      // Save settings
+      const handleSaveSettings = () => {
+        const newSettings = {
+          homepage: homepageInput.value || "http://darkorbit.com/",
+          useCustomUA: !!useCustomUA.checked,
+          customUserAgent: customUAInput.value || "",
+          gpuAcceleration: gpuAcceleration.checked,
+          clientName: clientNameInput.value || "Your Name",
+          rankIcon: rankSelect.value || "none",
+        };
+        
+        // Read old settings
+        const oldSettings = loadSettings();
+        
+        // Restart required if GPU setting changed
+        const needsRestart = 
+          newSettings.gpuAcceleration !== oldSettings.gpuAcceleration;
+        
+        // Save settings
+        saveSettings(newSettings);
+        ipcRenderer.send("settings:update", newSettings);
+        
+        // Update logo immediately
+        updateLogo();
+        
+        if (needsRestart) {
+          // Restarting message
+          const originalText = settingsSave.textContent;
+          settingsSave.textContent = "↻ Restarting...";
+          settingsSave.disabled = true;
+          
+          setTimeout(() => {
+            ipcRenderer.send("app:restart");
+          }, 1000);
+        } else {
+          // Başarı mesajı
+          const originalText = settingsSave.textContent;
+          settingsSave.textContent = "✓ Kaydedildi!";
+          settingsSave.style.backgroundColor = "var(--success)";
+          setTimeout(() => {
+            settingsSave.textContent = originalText;
+            settingsSave.style.backgroundColor = "";
+            closeSettingsModal();
+          }, 1500);
+        }
+      };
+
+      const notifyHeight = () => {
+        if (!chromeShell) return;
+        const rect = chromeShell.getBoundingClientRect();
+        ipcRenderer.send("ui:header-height", Math.ceil(rect.height));
+      };
+
+      window.addEventListener("load", notifyHeight);
+      window.addEventListener("resize", notifyHeight);
+
+      const renderTabs = () => {
+        tabStrip.innerHTML = "";
+        state.tabs.forEach((tab) => {
+          const el = document.createElement("div");
+          el.className = "tab";
+          el.draggable = true;
+          if (tab.id === state.activeId) el.classList.add("active");
+          if (tab.isLoading) el.classList.add("loading");
+          el.dataset.id = tab.id;
+          el.title = tab.url;
+
+          const loader = document.createElement("span");
+          loader.className = "loader";
+
+          const titleWrap = document.createElement("div");
+          titleWrap.className = "title";
+          const label = document.createElement("span");
+          label.textContent = tab.title || "New Tab";
+          titleWrap.appendChild(label);
+
+          const closeBtn = document.createElement("button");
+          closeBtn.className = "close-btn";
+          closeBtn.title = "Close";
+          closeBtn.textContent = "✕";
+
+          el.appendChild(loader);
+          el.appendChild(titleWrap);
+          el.appendChild(closeBtn);
+
+          el.addEventListener("click", () => ipcRenderer.invoke("tabs:activate", tab.id));
+          closeBtn.addEventListener("click", (event) => {
+            event.stopPropagation();
+            ipcRenderer.invoke("tabs:close", tab.id);
+          });
+
+          // Drag and drop events
+          el.addEventListener("dragstart", handleTabDragStart);
+          el.addEventListener("dragover", handleTabDragOver);
+          el.addEventListener("drop", handleTabDrop);
+          el.addEventListener("dragend", handleTabDragEnd);
+          el.addEventListener("dragleave", handleTabDragLeave);
+
+          tabStrip.appendChild(el);
+        });
+
+        const active = state.tabs.find((t) => t.id === state.activeId);
+        if (active) {
+          address.value = active.url;
+        }
+        statusDot.classList.toggle("loading", active && active.isLoading);
+      };
+
+      // Tab drag and drop handlers
+      let draggedTab = null;
+
+      const handleTabDragStart = (e) => {
+        draggedTab = e.target.closest(".tab");
+        draggedTab.style.opacity = "0.5";
+        e.dataTransfer.effectAllowed = "move";
+      };
+
+      const handleTabDragOver = (e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "move";
+        const tab = e.target.closest(".tab");
+        if (tab && tab !== draggedTab) {
+          tab.style.borderLeft = "3px solid var(--accent)";
+        }
+      };
+
+      const handleTabDragLeave = (e) => {
+        const tab = e.target.closest(".tab");
+        if (tab) {
+          tab.style.borderLeft = "";
+        }
+      };
+
+      const handleTabDrop = (e) => {
+        e.preventDefault();
+        const dropTarget = e.target.closest(".tab");
+        
+        if (dropTarget && draggedTab && dropTarget !== draggedTab) {
+          // Tab sırasını değiştir
+          const draggedId = draggedTab.dataset.id;
+          const targetId = dropTarget.dataset.id;
+          
+          const draggedIndex = state.tabs.findIndex((t) => t.id === draggedId);
+          const targetIndex = state.tabs.findIndex((t) => t.id === targetId);
+          
+          // Array'de sıraları değiştir
+          const temp = state.tabs[draggedIndex];
+          state.tabs[draggedIndex] = state.tabs[targetIndex];
+          state.tabs[targetIndex] = temp;
+          
+          // IPC ile backend'e gönder
+          ipcRenderer.send("tabs:reorder", { draggedId, targetId });
+          
+          renderTabs();
+        }
+      };
+
+      const handleTabDragEnd = (e) => {
+        if (draggedTab) {
+          draggedTab.style.opacity = "1";
+          draggedTab.style.borderLeft = "";
+        }
+        draggedTab = null;
+      };
+
+      ipcRenderer.on("tabs:update", (_event, payload) => {
+        state.tabs = payload.tabs.map(tab => ({
+          ...tab,
+          canGoBack: payload.canGoBack?.[tab.id] || false,
+          canGoForward: payload.canGoForward?.[tab.id] || false
+        }));
+        state.activeId = payload.activeId;
+        renderTabs();
+      });
+      ipcRenderer.on("window:fullscreen", (_event, payload) => {
+        const isFull = payload && payload.fullscreen;
+        document.body.classList.toggle("fullscreen", !!isFull);
+        if (isFull) {
+          ipcRenderer.send("ui:header-height", 0);
+        } else {
+          notifyHeight();
+        }
+      });
+
+      ipcRenderer.send("tabs:request-state");
+      notifyHeight();
+      updateLogo();
+
+      // Rank preview güncelleme fonksiyonu
+      const updateRankPreview = () => {
+        const value = rankSelect.value;
+        if (value && value !== "none") {
+          // Remove gradient, then set image (use contain for full visibility)
+          rankPreview.style.background = "none";
+          rankPreview.style.backgroundImage = `url('./ranks/rank_${value}.png')`;
+          rankPreview.style.backgroundSize = "contain";
+          rankPreview.style.backgroundPosition = "center";
+          rankPreview.style.backgroundRepeat = "no-repeat";
+        } else {
+          rankPreview.style.backgroundImage = "none";
+          rankPreview.style.background = "linear-gradient(135deg, var(--accent), #00a8cc)";
+          rankPreview.style.backgroundSize = "cover";
+          rankPreview.style.backgroundPosition = "center";
+          rankPreview.style.backgroundRepeat = "no-repeat";
+        }
+      };
+
+      // Ranks dropdown'ını doldur
+      ipcRenderer.on("ranks:list", (_event, ranks) => {
+        rankSelect.innerHTML = '<option value="none">No custom icon</option>';
+        ranks.forEach((rank) => {
+          const option = document.createElement("option");
+          option.value = rank;
+          option.textContent = `Rank ${rank}`;
+          rankSelect.appendChild(option);
+        });
+        // Set the saved value
+        const settings = loadSettings();
+        rankSelect.value = settings.rankIcon || "none";
+        updateRankPreview();
+      });
+      
+      // Rank seçimi değişince preview'u güncelle
+      rankSelect.addEventListener("change", updateRankPreview);
+      
+      ipcRenderer.send("ranks:list");
+
+      console.log("İnitializing buttons...");
+      console.log("settingsBtn:", settingsBtn);
+      console.log("homeBtn:", homeBtn);
+
+      addTabButton.addEventListener("click", () => ipcRenderer.invoke("tabs:create"));
+
+      homeBtn.addEventListener("click", () => {
+        const settings = loadSettings();
+        ipcRenderer.invoke("tabs:navigate", settings.homepage);
+      });
+
+      settingsBtn.addEventListener("click", () => {
+        console.log("Settings button clicked!");
+        openSettingsModal();
+      });
+      settingsClose.addEventListener("click", closeSettingsModal);
+      settingsCancel.addEventListener("click", closeSettingsModal);
+      settingsSave.addEventListener("click", handleSaveSettings);
+
+      // Close when clicking outside the modal
+      settingsModal.addEventListener("click", (e) => {
+        if (e.target === settingsModal) {
+          closeSettingsModal();
+        }
+      });
+
+      backBtn.addEventListener("click", () => ipcRenderer.invoke("tabs:back"));
+      forwardBtn.addEventListener("click", () => ipcRenderer.invoke("tabs:forward"));
+      reloadBtn.addEventListener("click", () => ipcRenderer.invoke("tabs:reload"));
+      clearCookies.addEventListener("click", async () => {
+        const confirmed = await ipcRenderer.invoke("dialog:confirm", {
+          message: "Do you want to clear cookies?",
+          detail: "All session cookies and local/session storage will be cleared.",
+        });
+        if (confirmed) {
+          const ok = await ipcRenderer.invoke("cookies:clear");
+          ipcRenderer.invoke("dialog:info", {
+            message: ok ? "Cookies cleared" : "Cookies could not be cleared",
+          });
+          if (ok) {
+            ipcRenderer.invoke("tabs:navigate", "https://google.com/");
+          }
+        }
+      });
+      winClose.addEventListener("click", () => ipcRenderer.send("window:close"));
+      winMin.addEventListener("click", () => ipcRenderer.send("window:minimize"));
+      winMax.addEventListener("click", () => ipcRenderer.send("window:toggle-maximize"));
+
+      address.addEventListener("keydown", (event) => {
+        if (event.key === "Enter") {
+          ipcRenderer.invoke("tabs:navigate", address.value);
+        }
+      });
+
+      document.addEventListener("keydown", (event) => {
+        const key = event.key.toLowerCase();
+        if (!event.ctrlKey && !event.metaKey) {
+          if (event.key === "F11" || event.key === "f11") {
+            event.preventDefault();
+            ipcRenderer.invoke("window:toggle-fullscreen");
+          }
+          if (findBar.style.display === "flex" && event.key === "Escape") {
+            hideFindBar();
+          }
+          return;
+        }
+        if (key === "t") {
+          ipcRenderer.invoke("tabs:create");
+          event.preventDefault();
+        }
+        if (key === "w") {
+          ipcRenderer.invoke("tabs:close");
+          event.preventDefault();
+        }
+        if (key === "r") {
+          ipcRenderer.invoke("tabs:reload");
+          event.preventDefault();
+        }
+        if (key === "f") {
+          event.preventDefault();
+          showFindBar("");
+        }
+        if (key === "tab") {
+          if (event.shiftKey) {
+            ipcRenderer.send("tabs:previous");
+          } else {
+            ipcRenderer.send("tabs:next");
+          }
+          event.preventDefault();
+        }
+      });
+
+      tabStrip.addEventListener("dblclick", () => ipcRenderer.invoke("tabs:create"));
+
+      const showFindBar = (text) => {
+        findBar.style.display = "flex";
+        if (text) {
+          findInput.value = text;
+        }
+        findInput.focus();
+        findInput.select();
+      };
+
+      const hideFindBar = () => {
+        findBar.style.display = "none";
+        ipcRenderer.invoke("find:stop");
+      };
+
+      const triggerFind = (forward = true) => {
+        const query = findInput.value.trim();
+        if (!query) return hideFindBar();
+        ipcRenderer.invoke("find:start", query, forward ? "forward" : "backward");
+      };
+
+      findNext.addEventListener("click", () => triggerFind(true));
+      findPrev.addEventListener("click", () => triggerFind(false));
+      findClose.addEventListener("click", hideFindBar);
+      findInput.addEventListener("keydown", (event) => {
+        if (event.key === "Enter") {
+          triggerFind(!event.shiftKey);
+          event.preventDefault();
+        }
+        if (event.key === "Escape") {
+          hideFindBar();
+        }
+      });
+
+      ipcRenderer.on("find:open", (_e, payload) => {
+        showFindBar((payload && payload.text) || "");
+      });
+
+      // Context Menu Functions
+      const closeContextMenu = () => {
+        contextMenu.classList.remove("visible");
+      };
+
+      const showContextMenu = (x, y, items) => {
+        contextMenu.innerHTML = "";
+        
+        items.forEach((item, index) => {
+          if (item.separator) {
+            const separator = document.createElement("div");
+            separator.className = "context-menu-separator";
+            contextMenu.appendChild(separator);
+            return;
+          }
+
+          const menuItem = document.createElement("button");
+          menuItem.className = "context-menu-item";
+          if (item.disabled) menuItem.classList.add("disabled");
+          
+          menuItem.innerHTML = `
+            <span class="context-menu-item-icon">${item.icon || ""}</span>
+            <span>${item.label}</span>
+          `;
+
+          if (!item.disabled) {
+            menuItem.addEventListener("click", () => {
+              item.click();
+              closeContextMenu();
+            });
+          }
+
+          contextMenu.appendChild(menuItem);
+        });
+
+        contextMenu.style.left = x + "px";
+        contextMenu.style.top = y + "px";
+        contextMenu.classList.add("visible");
+
+        // Pencere sınırlarını kontrol et
+        setTimeout(() => {
+          const rect = contextMenu.getBoundingClientRect();
+          if (rect.right > window.innerWidth) {
+            contextMenu.style.left = (window.innerWidth - rect.width - 10) + "px";
+          }
+          if (rect.bottom > window.innerHeight) {
+            contextMenu.style.top = (window.innerHeight - rect.height - 10) + "px";
+          }
+        }, 0);
+      };
+
+      // Sağ tık menüsü
+      document.addEventListener("contextmenu", (e) => {
+        e.preventDefault();
+        closeContextMenu();
+
+        const target = e.target.closest(".tab") || e.target.closest(".toolbar") || e.target;
+        const activeTab = state.tabs.find(t => t.id === state.activeId);
+        
+        // Right-click on tab
+        if (e.target.closest(".tab")) {
+          const tabElement = e.target.closest(".tab");
+          const tabId = tabElement.dataset.id;
+          const tab = state.tabs.find(t => t.id === tabId);
+          
+          if (tab) {
+            showContextMenu(e.clientX, e.clientY, [
+              {
+                icon: "🔄",
+                label: "Reload",
+                click: () => ipcRenderer.invoke("tabs:reload", tabId)
+              },
+              {
+                icon: "🔗",
+                label: "Open in New Tab",
+                click: () => ipcRenderer.invoke("tabs:create", tab.url)
+              },
+              { separator: true },
+              {
+                icon: "❌",
+                label: "Close Tab",
+                click: () => ipcRenderer.invoke("tabs:close", tabId)
+              }
+            ]);
+          }
+        }
+        // Right-click on tab strip
+        else if (e.target.closest(".tab-container") && !e.target.closest(".tab")) {
+          showContextMenu(e.clientX, e.clientY, [
+            {
+              icon: "➕",
+              label: "New Tab",
+              click: () => ipcRenderer.invoke("tabs:create")
+            }
+          ]);
+        }
+        // Right-click on toolbar or address bar
+        else if (e.target.closest(".toolbar") || e.target.id === "address" || e.target.closest(".address-bar")) {
+          const items = [
+            {
+              icon: "↶",
+              label: "Back",
+              disabled: !activeTab || !activeTab.canGoBack,
+              click: () => ipcRenderer.invoke("tabs:back")
+            },
+            {
+              icon: "↷",
+              label: "Forward",
+              disabled: !activeTab || !activeTab.canGoForward,
+              click: () => ipcRenderer.invoke("tabs:forward")
+            },
+            {
+              icon: "🔄",
+              label: "Reload",
+              click: () => ipcRenderer.invoke("tabs:reload")
+            }
+          ];
+          
+          if (activeTab) {
+            items.push({ separator: true });
+            items.push({
+              icon: "📄",
+              label: "View Page Source",
+              click: () => ipcRenderer.invoke("tabs:view-source")
+            });
+            items.push({
+              icon: "🔍",
+              label: "Inspect Element",
+              click: () => ipcRenderer.invoke("tabs:inspect-element", {
+                x: e.clientX,
+                y: e.clientY
+              })
+            });
+          }
+          
+          showContextMenu(e.clientX, e.clientY, items);
+        }
+      });
+
+      // Başka yere tıklanırsa menüyü kapat
+      document.addEventListener("click", (e) => {
+        if (!e.target.closest(".context-menu")) {
+          closeContextMenu();
+        }
+      });
+
+      // Escape tuşu ile menüyü kapat
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") {
+          closeContextMenu();
+        }
+      });
+    </script>
+  </body>
+</html>

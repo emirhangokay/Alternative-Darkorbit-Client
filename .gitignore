@@ -1,0 +1,23 @@
+# Node
+node_modules/
+
+# Electron build outputs
+dist/
+out/
+build/
+win-unpacked/
+*.exe
+*.exe.blockmap
+*.yml
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# IDE
+.vscode/

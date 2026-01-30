@@ -1,6 +1,4 @@
 # Alternative Darkorbit Browser
-
-**Kısa açıklama:**
 An Electron-based game client developed for DarkOrbit. This repository contains the application’s source code, user interface, and configuration files.
 
 ---

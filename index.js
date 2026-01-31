@@ -833,6 +833,7 @@ ipcMain.on("page:context-menu", (_event, data) => {
     template.push({
       label: `Search "${data.selection.substring(0, 30)}${data.selection.length > 30 ? "..." : ""}"`,
       click: () => {
+        const activeTab = tabs.find((t) => t.id === activeTabId);
         if (activeTab) {
           navigateActive(`https://www.google.com/search?q=${encodeURIComponent(data.selection)}`);
         }
@@ -862,6 +863,7 @@ ipcMain.on("page:context-menu", (_event, data) => {
     template.push({
       label: "💾 Download Image",
       click: () => {
+        const activeTab = tabs.find((t) => t.id === activeTabId);
         if (activeTab && activeTab.view && activeTab.view.webContents) {
           activeTab.view.webContents.downloadURL(data.imageUrl);
         }
@@ -874,6 +876,7 @@ ipcMain.on("page:context-menu", (_event, data) => {
   template.push({
     label: "📄 View Page Source",
     click: () => {
+      const activeTab = tabs.find((t) => t.id === activeTabId);
       if (activeTab) {
         const url = activeTab.view.webContents.getURL();
         createTab(`view-source:${url}`, true);
@@ -884,6 +887,7 @@ ipcMain.on("page:context-menu", (_event, data) => {
   template.push({
     label: "🔍 Inspect Element (DevTools)",
     click: () => {
+      const activeTab = tabs.find((t) => t.id === activeTabId);
       if (activeTab && activeTab.view && activeTab.view.webContents) {
         activeTab.view.webContents.inspectElement(data.x, data.y);
       }

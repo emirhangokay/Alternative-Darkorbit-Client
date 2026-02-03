@@ -265,6 +265,24 @@ const attachViewEvents = (tab) => {
     createTab(url, true);
   });
 
+  // Prevent page from closing the entire client; close only this tab instead
+  view.webContents.on("will-prevent-unload", (event) => {
+    // Allow the page to close without showing confirmation dialog
+    event.preventDefault();
+  });
+
+  view.webContents.executeJavaScript(`
+    (function() {
+      const originalClose = window.close;
+      window.close = function() {
+        // Notify Electron to close only this tab
+        if (window.electronAPI && window.electronAPI.closeCurrentTab) {
+          window.electronAPI.closeCurrentTab();
+        }
+      };
+    })();
+  `).catch(() => {});
+
   view.webContents.on("context-menu", (event, params) => {
     const menu = Menu.buildFromTemplate([
       {
@@ -537,6 +555,16 @@ const registerShortcuts = () => {
 ipcMain.handle("tabs:create", (_event, url) => createTab(url || DEFAULT_URL, true));
 ipcMain.handle("tabs:activate", (_event, id) => setActiveTab(id));
 ipcMain.handle("tabs:close", (_event, id) => closeTab(id || activeTabId));
+
+// Handle page-initiated close (e.g., when game's logout triggers window.close())
+ipcMain.on("tab:close-current", (event) => {
+  // Find which tab owns this webContents
+  const senderTab = tabs.find((t) => t.view && t.view.webContents && t.view.webContents.id === event.sender.id);
+  if (senderTab) {
+    closeTab(senderTab.id);
+  }
+});
+
 ipcMain.handle("tabs:reload", (_event, tabId) => {
   const tab = tabId ? findTab(tabId) : findTab(activeTabId);
   if (tab) tab.view.webContents.reload();

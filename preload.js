@@ -1,5 +1,12 @@
 const { ipcRenderer } = require("electron");
 
+// Expose API to close current tab from page scripts
+window.electronAPI = {
+  closeCurrentTab: () => {
+    ipcRenderer.send("tab:close-current");
+  }
+};
+
 const getKey = (input) =>
   input.getAttribute("name") ||
   input.getAttribute("id") ||

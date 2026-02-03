@@ -24,6 +24,20 @@
         --border-color: #2a3342;
       }
 
+      body.theme-light {
+        --bg-primary: #f5f7fb;
+        --bg-secondary: #ffffff;
+        --bg-tertiary: #eef2f7;
+        --accent: #0ea5e9;
+        --accent-hover: #38bdf8;
+        --success: #16a34a;
+        --danger: #ef4444;
+        --warning: #f59e0b;
+        --text-primary: #0f172a;
+        --text-secondary: #475569;
+        --border-color: #dbe2ee;
+      }
+
       * {
         box-sizing: border-box;
         margin: 0;
@@ -113,7 +127,7 @@
 
       .toolbar {
         display: grid;
-        grid-template-columns: auto auto auto 1fr auto;
+        grid-template-columns: auto auto auto auto 1fr auto auto auto;
         align-items: center;
         gap: 8px;
         padding: 0 8px;
@@ -426,6 +440,7 @@
         color: var(--bg-primary);
       }
 
+
       body.fullscreen header,
       body.fullscreen .find-bar {
         display: none !important;
@@ -435,6 +450,204 @@
         margin: 0 !important;
         border: 0 !important;
       }
+
+      .credentials-modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 99999;
+        align-items: center;
+        justify-content: center;
+        pointer-events: none;
+      }
+
+      .credentials-modal.open {
+        display: flex !important;
+        pointer-events: auto !important;
+      }
+
+      .credentials-modal-content {
+        background: var(--bg-secondary);
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        padding: 24px;
+        width: 500px;
+        max-height: 240px;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+        pointer-events: auto;
+      }
+
+      .credentials-modal-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+      }
+
+      .credentials-modal-header h3 {
+        margin: 0;
+        font-size: 16px;
+        font-weight: 600;
+      }
+
+      .credentials-modal-close {
+        background: none;
+        border: none;
+        color: var(--text-secondary);
+        cursor: pointer;
+        font-size: 20px;
+        padding: 0;
+        width: 28px;
+        height: 28px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .credentials-modal-close:hover {
+        color: var(--accent);
+      }
+
+      .credentials-list {
+        display: flex;
+        flex-direction: row;
+        gap: 8px;
+        overflow-x: auto;
+        overflow-y: hidden;
+        max-height: 80px;
+        padding: 4px 0;
+      }
+
+      .credentials-item {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        padding: 10px;
+        background: var(--bg-tertiary);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        min-width: 140px;
+        flex-shrink: 0;
+      }
+
+      .credentials-item-info {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        overflow: hidden;
+      }
+
+      .credentials-item-username {
+        font-weight: 600;
+        font-size: 13px;
+        color: var(--text-primary);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .credentials-item-site {
+        font-size: 11px;
+        color: var(--text-secondary);
+      }
+
+      .credentials-item-actions {
+        display: flex;
+        gap: 4px;
+      }
+
+      .credentials-item-actions .credentials-btn {
+        flex: 1;
+        padding: 4px 6px;
+        font-size: 10px;
+      }
+
+      .credentials-btn {
+        padding: 6px 8px;
+        border: 1px solid var(--border-color);
+        background: var(--bg-secondary);
+        color: var(--text-primary);
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 11px;
+        transition: all 0.2s ease;
+      }
+
+      .credentials-btn:hover {
+        border-color: var(--accent);
+        color: var(--accent);
+      }
+
+      .credentials-empty {
+        text-align: center;
+        color: var(--text-secondary);
+        padding: 24px 0;
+        font-size: 13px;
+      }
+
+      .credentials-edit-form {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+
+      .credentials-edit-form input {
+        padding: 8px 12px;
+        background: var(--bg-tertiary);
+        border: 1px solid var(--border-color);
+        border-radius: 6px;
+        color: var(--text-primary);
+        font-size: 13px;
+      }
+
+      .credentials-edit-form input::placeholder {
+        color: var(--text-secondary);
+      }
+
+      .credentials-edit-actions {
+        display: flex;
+        gap: 8px;
+      }
+
+      .credentials-edit-actions button {
+        flex: 1;
+        padding: 8px 12px;
+        border: 1px solid var(--border-color);
+        border-radius: 6px;
+        cursor: pointer;
+        font-weight: 500;
+        font-size: 12px;
+        transition: all 0.2s ease;
+      }
+
+      .credentials-edit-actions .btn-save {
+        background: var(--accent);
+        color: var(--bg-primary);
+        border-color: var(--accent);
+      }
+
+      .credentials-edit-actions .btn-save:hover {
+        background: var(--accent-hover);
+        border-color: var(--accent-hover);
+      }
+
+      .credentials-edit-actions .btn-cancel {
+        background: var(--bg-tertiary);
+        color: var(--text-primary);
+      }
+
+      .credentials-edit-actions .btn-cancel:hover {
+        border-color: var(--accent);
+        color: var(--accent);
+      }
+
 
       .win-btn {
         width: 32px;
@@ -476,7 +689,7 @@
         border: 1px solid var(--border-color);
         border-radius: 6px;
         box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
-        z-index: 10000;
+        z-index: 99997;
         display: none;
         flex-direction: column;
         min-width: 220px;
@@ -540,7 +753,7 @@
         right: 0;
         bottom: 0;
         background: rgba(0, 0, 0, 0.6);
-        z-index: 2000;
+        z-index: 99998;
         align-items: center;
         justify-content: center;
         pointer-events: none;
@@ -725,6 +938,7 @@
           </div>
           <button class="btn" id="clear-cookies" title="Clear cookies">Cookies</button>
           <button class="btn icon" id="home" title="Home">🏠</button>
+          <button class="btn icon" id="credentials-manager" title="Manage credentials">🔐</button>
           <button class="btn icon" id="settings" title="Settings">⚙️</button>
           <div class="find-bar" id="find-bar">
             <input id="find-input" type="text" placeholder="Find in page..." />
@@ -748,6 +962,30 @@
 
     <!-- Context Menu -->
     <div class="context-menu" id="context-menu"></div>
+
+    <!-- Credentials Manager Modal -->
+    <div class="credentials-modal" id="credentials-modal">
+      <div class="credentials-modal-content">
+        <div class="credentials-modal-header">
+          <h3>Saved Accounts</h3>
+          <button class="credentials-modal-close" id="credentials-modal-close">✕</button>
+        </div>
+        <div id="credentials-view-list" style="display: none;">
+          <div class="credentials-list" id="credentials-list"></div>
+          <div class="credentials-empty" id="credentials-empty">No saved accounts.</div>
+        </div>
+        <div id="credentials-edit-form" style="display: none;">
+          <div class="credentials-edit-form">
+            <input type="text" id="credentials-edit-username" placeholder="Username" />
+            <input type="password" id="credentials-edit-password" placeholder="Password" />
+          </div>
+          <div class="credentials-edit-actions">
+            <button class="btn-cancel" id="credentials-edit-cancel">Cancel</button>
+            <button class="btn-save" id="credentials-edit-save">Save</button>
+          </div>
+        </div>
+      </div>
+    </div>
 
     <!-- Settings Modal -->
     <div class="modal" id="settings-modal">
@@ -786,6 +1024,14 @@
         </div>
 
         <div class="setting-group">
+          <label for="theme-select">Theme</label>
+          <select id="theme-select" style="width: 100%;">
+            <option value="dark">Dark</option>
+            <option value="light">Light</option>
+          </select>
+        </div>
+
+        <div class="setting-group">
           <label for="use-custom-ua">Custom User Agent</label>
           <div style="display:flex;gap:8px;align-items:center;">
             <input type="checkbox" id="use-custom-ua" />
@@ -795,7 +1041,7 @@
         </div>
 
         <div class="setting-group">
-          <label>Performans Modu</label>
+          <label>Performance Mode</label>
           <div class="checkbox-group">
             <input
               type="checkbox"
@@ -804,6 +1050,15 @@
             />
             <label for="gpu-acceleration">GPU Acceleration (Hardware Acceleration)</label>
           </div>
+        </div>
+
+        <div class="setting-group">
+          <label>Login</label>
+          <div class="checkbox-group">
+            <input type="checkbox" id="save-login" />
+            <label for="save-login">Save login credentials</label>
+          </div>
+          <small style="color:var(--text-secondary);">Saved credentials are stored locally. You'll see saved accounts on login pages.</small>
         </div>
 
         <div class="modal-actions">
@@ -830,15 +1085,18 @@
       const winMin = document.getElementById("win-min");
       const clearCookies = document.getElementById("clear-cookies");
       const homeBtn = document.getElementById("home");
+      const credentialsManagerBtn = document.getElementById("credentials-manager");
       const settingsBtn = document.getElementById("settings");
       const settingsModal = document.getElementById("settings-modal");
       const settingsClose = document.getElementById("settings-close");
       const settingsCancel = document.getElementById("settings-cancel");
       const settingsSave = document.getElementById("settings-save");
       const homepageInput = document.getElementById("homepage");
+      const themeSelect = document.getElementById("theme-select");
       const useCustomUA = document.getElementById("use-custom-ua");
       const customUAInput = document.getElementById("custom-ua");
       const gpuAcceleration = document.getElementById("gpu-acceleration");
+      const saveLogin = document.getElementById("save-login");
       const clientNameInput = document.getElementById("client-name");
       const rankSelect = document.getElementById("rank-select");
       const rankPreview = document.getElementById("rank-preview");
@@ -848,6 +1106,16 @@
       const findNext = document.getElementById("find-next");
       const findClose = document.getElementById("find-close");
       const contextMenu = document.getElementById("context-menu");
+      const credentialsModal = document.getElementById("credentials-modal");
+      const credentialsModalClose = document.getElementById("credentials-modal-close");
+      const credentialsViewList = document.getElementById("credentials-view-list");
+      const credentialsList = document.getElementById("credentials-list");
+      const credentialsEmpty = document.getElementById("credentials-empty");
+      const credentialsEditForm = document.getElementById("credentials-edit-form");
+      const credentialsEditUsername = document.getElementById("credentials-edit-username");
+      const credentialsEditPassword = document.getElementById("credentials-edit-password");
+      const credentialsEditCancel = document.getElementById("credentials-edit-cancel");
+      const credentialsEditSave = document.getElementById("credentials-edit-save");
 
       const state = {
         tabs: [],
@@ -873,6 +1141,9 @@
               rankIcon: "none",
               useCustomUA: false,
               customUserAgent: "",
+              theme: "dark",
+              saveLogin: false,
+              autoLogin: false,
             };
       };
 
@@ -911,15 +1182,21 @@
         }
       };
 
+      const applyTheme = (theme) => {
+        document.body.classList.toggle("theme-light", theme === "light");
+      };
+
       // Open settings modal
       const openSettingsModal = () => {
         console.log("Opening settings modal...");
         console.log("Modal element:", settingsModal);
         const settings = loadSettings();
         homepageInput.value = settings.homepage;
+        themeSelect.value = settings.theme || "dark";
         useCustomUA.checked = !!settings.useCustomUA;
         customUAInput.value = settings.customUserAgent || "";
         gpuAcceleration.checked = settings.gpuAcceleration;
+        saveLogin.checked = !!settings.saveLogin;
         clientNameInput.value = settings.clientName || "Your Name";
         rankSelect.value = settings.rankIcon || "none";
         updateRankPreview();
@@ -944,9 +1221,11 @@
       const handleSaveSettings = () => {
         const newSettings = {
           homepage: homepageInput.value || "http://darkorbit.com/",
+          theme: themeSelect.value || "dark",
           useCustomUA: !!useCustomUA.checked,
           customUserAgent: customUAInput.value || "",
           gpuAcceleration: gpuAcceleration.checked,
+          saveLogin: !!saveLogin.checked,
           clientName: clientNameInput.value || "Your Name",
           rankIcon: rankSelect.value || "none",
         };
@@ -964,6 +1243,7 @@
         
         // Update logo immediately
         updateLogo();
+        applyTheme(newSettings.theme || "dark");
         
         if (needsRestart) {
           // Restarting message
@@ -977,7 +1257,7 @@
         } else {
           // Başarı mesajı
           const originalText = settingsSave.textContent;
-          settingsSave.textContent = "✓ Kaydedildi!";
+          settingsSave.textContent = "✓ Saved!";
           settingsSave.style.backgroundColor = "var(--success)";
           setTimeout(() => {
             settingsSave.textContent = originalText;
@@ -1006,11 +1286,14 @@
             rankIcon: "none",
             useCustomUA: false,
             customUserAgent: "",
+            theme: "dark",
+            saveLogin: false,
           };
           const merged = Object.assign(defaults, s || {});
           localStorage.setItem("do-settings", JSON.stringify(merged));
           try {
             updateLogo();
+            applyTheme(merged.theme || "dark");
             rankSelect.value = merged.rankIcon || "none";
             updateRankPreview();
           } catch (_err) {}
@@ -1022,11 +1305,14 @@
         try {
           localStorage.setItem("do-settings", JSON.stringify(newSettings));
           updateLogo();
+          applyTheme(newSettings.theme || "dark");
           if (settingsModal && settingsModal.classList && settingsModal.classList.contains("open")) {
             homepageInput.value = newSettings.homepage || "http://darkorbit.com/";
+            themeSelect.value = newSettings.theme || "dark";
             useCustomUA.checked = !!newSettings.useCustomUA;
             customUAInput.value = newSettings.customUserAgent || "";
             gpuAcceleration.checked = newSettings.gpuAcceleration;
+            saveLogin.checked = !!newSettings.saveLogin;
             clientNameInput.value = newSettings.clientName || "Your Name";
             rankSelect.value = newSettings.rankIcon || "none";
             updateRankPreview();
@@ -1165,6 +1451,7 @@
       ipcRenderer.send("tabs:request-state");
       notifyHeight();
       updateLogo();
+      applyTheme((loadSettings().theme || "dark"));
 
       // Rank preview güncelleme fonksiyonu
       const updateRankPreview = () => {
@@ -1209,11 +1496,149 @@
       console.log("settingsBtn:", settingsBtn);
       console.log("homeBtn:", homeBtn);
 
+      // Define loadAndRenderCredentials BEFORE event listeners
+      const loadAndRenderCredentials = async () => {
+        let origin = address.value.trim();
+        if (!origin) {
+          credentialsViewList.style.display = "none";
+          credentialsEditForm.style.display = "none";
+          credentialsEmpty.textContent = "Enter URL in address bar first.";
+          credentialsEmpty.style.display = "block";
+          return;
+        }
+
+        // Add http:// if no protocol specified
+        if (!origin.startsWith("http://") && !origin.startsWith("https://")) {
+          origin = "https://" + origin;
+        }
+
+        let siteOrigin;
+        try {
+          const url = new URL(origin);
+          siteOrigin = url.origin;
+        } catch (_err) {
+          credentialsViewList.style.display = "none";
+          credentialsEditForm.style.display = "none";
+          credentialsEmpty.textContent = "Invalid URL.";
+          credentialsEmpty.style.display = "block";
+          return;
+        }
+
+        const accounts = await ipcRenderer.invoke("credentials:list", siteOrigin);
+        credentialsViewList.style.display = "block";
+        credentialsEditForm.style.display = "none";
+        credentialsList.innerHTML = "";
+
+        if (!accounts || !accounts.length) {
+          credentialsEmpty.style.display = "block";
+          return;
+        }
+
+        credentialsEmpty.style.display = "none";
+        accounts.forEach((account) => {
+          const item = document.createElement("div");
+          item.className = "credentials-item";
+
+          const info = document.createElement("div");
+          info.className = "credentials-item-info";
+
+          const username = document.createElement("div");
+          username.className = "credentials-item-username";
+          username.textContent = account.username;
+
+          const site = document.createElement("div");
+          site.className = "credentials-item-site";
+          site.textContent = new URL(siteOrigin).hostname;
+
+          info.appendChild(username);
+          info.appendChild(site);
+
+          const actions = document.createElement("div");
+          actions.className = "credentials-item-actions";
+
+          const editBtn = document.createElement("button");
+          editBtn.className = "credentials-btn";
+          editBtn.textContent = "Edit";
+          editBtn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            editingOrigin = siteOrigin;
+            editingUsername = account.username;
+            credentialsEditUsername.value = account.username;
+            credentialsEditPassword.value = account.password;
+            credentialsViewList.style.display = "none";
+            credentialsEditForm.style.display = "block";
+          });
+
+          const deleteBtn = document.createElement("button");
+          deleteBtn.className = "credentials-btn";
+          deleteBtn.textContent = "Delete";
+          deleteBtn.addEventListener("click", async (e) => {
+            e.stopPropagation();
+            const ok = await ipcRenderer.invoke("credentials:delete", siteOrigin, account.username);
+            if (ok) {
+              loadAndRenderCredentials();
+            }
+          });
+
+          actions.appendChild(editBtn);
+          actions.appendChild(deleteBtn);
+          item.appendChild(info);
+          item.appendChild(actions);
+          credentialsList.appendChild(item);
+        });
+      };
+
       addTabButton.addEventListener("click", () => ipcRenderer.invoke("tabs:create"));
 
       homeBtn.addEventListener("click", () => {
         const settings = loadSettings();
         ipcRenderer.invoke("tabs:navigate", settings.homepage);
+      });
+
+      credentialsManagerBtn.addEventListener("click", async () => {
+        try {
+          let origin = address.value.trim();
+          if (!origin) {
+            alert("Please enter a URL in the address bar first.");
+            return;
+          }
+
+          // Add http:// if no protocol specified
+          if (!origin.startsWith("http://") && !origin.startsWith("https://")) {
+            origin = "https://" + origin;
+          }
+
+          let siteOrigin;
+          try {
+            const url = new URL(origin);
+            siteOrigin = url.origin;
+          } catch (_err) {
+            alert("Invalid URL.");
+            return;
+          }
+
+          // Get accounts from main process
+          const accounts = await ipcRenderer.invoke("credentials:list", siteOrigin);
+          
+          // Send to main process which will send to active BrowserView
+          ipcRenderer.send("show-credentials-modal", accounts);
+        } catch (err) {
+          console.error("Error in credentials button handler:", err);
+        }
+      });
+
+      credentialsModalClose.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        credentialsModal.classList.remove("open");
+      });
+
+      // Handle credentials modal backdrop clicks
+      credentialsModal.addEventListener("click", (e) => {
+        // Only close if clicking directly on the backdrop (not the content)
+        if (e.target === credentialsModal) {
+          credentialsModal.classList.remove("open");
+        }
       });
 
       settingsBtn.addEventListener("click", () => {
@@ -1223,6 +1648,43 @@
       settingsClose.addEventListener("click", closeSettingsModal);
       settingsCancel.addEventListener("click", closeSettingsModal);
       settingsSave.addEventListener("click", handleSaveSettings);
+
+      // Credentials management functions
+      let editingOrigin = null;
+      let editingUsername = null;
+
+      credentialsEditCancel.addEventListener("click", () => {
+        credentialsViewList.style.display = "block";
+        credentialsEditForm.style.display = "none";
+        editingOrigin = null;
+        editingUsername = null;
+      });
+
+      credentialsEditSave.addEventListener("click", async () => {
+        if (!editingOrigin || !editingUsername) return;
+        const newUsername = credentialsEditUsername.value.trim();
+        const newPassword = credentialsEditPassword.value;
+        if (!newUsername || !newPassword) return;
+
+        // Delete old account if username changed
+        if (newUsername !== editingUsername) {
+          await ipcRenderer.invoke("credentials:delete", editingOrigin, editingUsername);
+        }
+
+        // Save new account
+        const ok = await ipcRenderer.invoke("credentials:save", editingOrigin, {
+          username: newUsername,
+          password: newPassword,
+        });
+
+        if (ok) {
+          credentialsViewList.style.display = "block";
+          credentialsEditForm.style.display = "none";
+          editingOrigin = null;
+          editingUsername = null;
+          loadAndRenderCredentials();
+        }
+      });
 
       // Close when clicking outside the modal
       settingsModal.addEventListener("click", (e) => {

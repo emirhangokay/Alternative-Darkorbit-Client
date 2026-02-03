@@ -20,6 +20,7 @@ const USER_AGENT =
 const TAB_BAR_HEIGHT = 72;
 const SESSION_PARTITION = "persist:ua-client";
 const AUTOFILL_STORE = path.join(app.getPath("userData"), "autofill.json");
+const CREDENTIALS_STORE = path.join(app.getPath("userData"), "credentials.json");
 const DARKORBIT_UA = "BigpointClient/1.7.2";
 
 let mainWindow;
@@ -92,6 +93,8 @@ const loadSettings = () => {
       rankIcon: "none",
       useCustomUA: false,
       customUserAgent: "",
+      theme: "dark",
+      saveLogin: false,
     };
   }
 };
@@ -106,6 +109,8 @@ settings = Object.assign(
     rankIcon: "none",
     useCustomUA: false,
     customUserAgent: "",
+    theme: "dark",
+    saveLogin: false,
   },
   settings
 );
@@ -123,6 +128,22 @@ const readAutofill = () => {
 const writeAutofill = (data) => {
   try {
     fs.writeFileSync(AUTOFILL_STORE, JSON.stringify(data, null, 2), "utf8");
+  } catch (_err) {
+    // ignore
+  }
+};
+
+const readCredentials = () => {
+  try {
+    return JSON.parse(fs.readFileSync(CREDENTIALS_STORE, "utf8"));
+  } catch (_err) {
+    return {};
+  }
+};
+
+const writeCredentials = (data) => {
+  try {
+    fs.writeFileSync(CREDENTIALS_STORE, JSON.stringify(data, null, 2), "utf8");
   } catch (_err) {
     // ignore
   }
@@ -552,7 +573,7 @@ const registerShortcuts = () => {
   safeRegister("F11", toggleFullscreen);
 };
 
-ipcMain.handle("tabs:create", (_event, url) => createTab(url || DEFAULT_URL, true));
+ipcMain.handle("tabs:create", (_event, url) => createTab(url || DEFAULT_URL, false));
 ipcMain.handle("tabs:activate", (_event, id) => setActiveTab(id));
 ipcMain.handle("tabs:close", (_event, id) => closeTab(id || activeTabId));
 
@@ -653,6 +674,55 @@ ipcMain.handle("autofill:delete", (_e, origin, key, value) => {
 ipcMain.handle("autofill:clear", () => {
   pendingAutofill.clear();
   writeAutofill({});
+});
+ipcMain.handle("credentials:list", (_e, origin) => {
+  if (!origin) return [];
+  const store = readCredentials();
+  const list = store[origin];
+  return Array.isArray(list) ? list : [];
+});
+ipcMain.handle("credentials:save", (_e, origin, payload) => {
+  if (!origin || !payload) return false;
+  const username = (payload.username || "").trim();
+  const password = payload.password || "";
+  if (!username || !password) return false;
+  const store = readCredentials();
+  if (!Array.isArray(store[origin])) {
+    store[origin] = [];
+  }
+  const existing = store[origin].findIndex((c) => c.username === username);
+  const cred = {
+    username,
+    password,
+    updatedAt: Date.now(),
+  };
+  if (existing !== -1) {
+    store[origin][existing] = cred;
+  } else {
+    store[origin].unshift(cred);
+  }
+  writeCredentials(store);
+  return true;
+});
+ipcMain.handle("credentials:delete", (_e, origin, username) => {
+  if (!origin || !username) return false;
+  const store = readCredentials();
+  if (Array.isArray(store[origin])) {
+    store[origin] = store[origin].filter((c) => c.username !== username);
+    if (!store[origin].length) {
+      delete store[origin];
+    }
+  }
+  writeCredentials(store);
+  return true;
+});
+
+// Handle show credentials modal in active page
+ipcMain.on("show-credentials-modal", (_e, accounts) => {
+  const tab = findTab(activeTabId);
+  if (tab && tab.view && tab.view.webContents) {
+    tab.view.webContents.send("show:credentials-modal", accounts || []);
+  }
 });
 ipcMain.handle("tabs:view-source", () => {
   const tab = findTab(activeTabId);

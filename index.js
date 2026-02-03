@@ -675,10 +675,27 @@ ipcMain.handle("autofill:clear", () => {
   pendingAutofill.clear();
   writeAutofill({});
 });
+
+// Helper to extract base domain (e.g., darkorbit.com from tr5.darkorbit.com)
+const getBaseDomain = (origin) => {
+  try {
+    const url = new URL(origin);
+    const parts = url.hostname.split('.');
+    // If has subdomain, use last 2 parts (domain.tld)
+    if (parts.length > 2) {
+      return parts.slice(-2).join('.');
+    }
+    return url.hostname;
+  } catch (err) {
+    return origin;
+  }
+};
+
 ipcMain.handle("credentials:list", (_e, origin) => {
   if (!origin) return [];
+  const baseDomain = getBaseDomain(origin);
   const store = readCredentials();
-  const list = store[origin];
+  const list = store[baseDomain];
   return Array.isArray(list) ? list : [];
 });
 ipcMain.handle("credentials:save", (_e, origin, payload) => {
@@ -686,31 +703,33 @@ ipcMain.handle("credentials:save", (_e, origin, payload) => {
   const username = (payload.username || "").trim();
   const password = payload.password || "";
   if (!username || !password) return false;
+  const baseDomain = getBaseDomain(origin);
   const store = readCredentials();
-  if (!Array.isArray(store[origin])) {
-    store[origin] = [];
+  if (!Array.isArray(store[baseDomain])) {
+    store[baseDomain] = [];
   }
-  const existing = store[origin].findIndex((c) => c.username === username);
+  const existing = store[baseDomain].findIndex((c) => c.username === username);
   const cred = {
     username,
     password,
     updatedAt: Date.now(),
   };
   if (existing !== -1) {
-    store[origin][existing] = cred;
+    store[baseDomain][existing] = cred;
   } else {
-    store[origin].unshift(cred);
+    store[baseDomain].unshift(cred);
   }
   writeCredentials(store);
   return true;
 });
 ipcMain.handle("credentials:delete", (_e, origin, username) => {
   if (!origin || !username) return false;
+  const baseDomain = getBaseDomain(origin);
   const store = readCredentials();
-  if (Array.isArray(store[origin])) {
-    store[origin] = store[origin].filter((c) => c.username !== username);
-    if (!store[origin].length) {
-      delete store[origin];
+  if (Array.isArray(store[baseDomain])) {
+    store[baseDomain] = store[baseDomain].filter((c) => c.username !== username);
+    if (!store[baseDomain].length) {
+      delete store[baseDomain];
     }
   }
   writeCredentials(store);

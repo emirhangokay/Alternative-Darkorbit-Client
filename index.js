@@ -305,6 +305,20 @@ const attachViewEvents = (tab) => {
   `).catch(() => {});
 
   view.webContents.on("context-menu", (event, params) => {
+    const isFlashContext = (() => {
+      if (!params) return false;
+      if (params.mediaType === "plugin") return true;
+      const candidates = [params.srcURL, params.frameURL, params.pageURL];
+      return candidates.some((value) => {
+        if (!value || typeof value !== "string") return false;
+        return value.toLowerCase().includes(".swf");
+      });
+    })();
+    if (isFlashContext) {
+      // Allow Flash/Pepper plugin to show its own native context menu.
+      return;
+    }
+
     const menu = Menu.buildFromTemplate([
       {
         label: "Reload",

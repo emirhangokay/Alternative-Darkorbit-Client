@@ -801,7 +801,44 @@ window.addEventListener(
 );
 
 // Sayfa içinde sağ tık context menu
+const isFlashElement = (el) => {
+  if (!el || typeof el.getAttribute !== "function") return false;
+  const tag = (el.tagName || "").toLowerCase();
+  if (tag !== "embed" && tag !== "object") return false;
+  const type = (el.getAttribute("type") || "").toLowerCase();
+  const data = (el.getAttribute("data") || "").toLowerCase();
+  const src = (el.getAttribute("src") || "").toLowerCase();
+  if (type.includes("shockwave") || type.includes("flash")) return true;
+  if (data.includes(".swf") || src.includes(".swf")) return true;
+  if (tag === "object") {
+    const movieParam = el.querySelector('param[name="movie"]');
+    const value = movieParam ? (movieParam.getAttribute("value") || "").toLowerCase() : "";
+    if (value.includes(".swf")) return true;
+  }
+  return false;
+};
+
+const isFlashTarget = (event) => {
+  if (!event) return false;
+  if (typeof event.composedPath === "function") {
+    const path = event.composedPath();
+    for (const node of path) {
+      if (node && node.tagName && isFlashElement(node)) return true;
+    }
+  }
+  const target = event.target;
+  if (target && typeof target.closest === "function") {
+    const el = target.closest("embed, object");
+    if (el && isFlashElement(el)) return true;
+  }
+  return false;
+};
+
 document.addEventListener("contextmenu", (event) => {
+  if (isFlashTarget(event)) {
+    // Allow Flash/Pepper to show its own context menu (quality/settings).
+    return;
+  }
   event.preventDefault();
   
   const selection = window.getSelection().toString();
@@ -836,3 +873,4 @@ document.addEventListener("contextmenu", (event) => {
     canGoBack: window.history.length > 1
   });
 });
+

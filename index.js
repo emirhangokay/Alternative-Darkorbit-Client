@@ -3,12 +3,17 @@
   BrowserWindow,
   BrowserView,
   Menu,
+  dialog,
   ipcMain,
   globalShortcut,
+  powerSaveBlocker,
+  powerMonitor,
   screen,
   session,
 } = require("electron");
 const fs = require("fs");
+const os = require("os");
+const { execFile } = require("child_process");
 const path = require("path");
 
 process.env["ELECTRON_DISABLE_SECURITY_WARNINGS"] = "true";
@@ -17,7 +22,8 @@ const DEFAULT_URL = "https://darkorbit.com/";
 const USER_AGENT =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36";
   
-const TAB_BAR_HEIGHT = 72;
+const TAB_BAR_HEIGHT = 82;
+const MIN_CHROME_HEIGHT = 36;
 const SESSION_PARTITION = "persist:ua-client";
 const AUTOFILL_STORE = path.join(app.getPath("userData"), "autofill.json");
 const CREDENTIALS_STORE = path.join(app.getPath("userData"), "credentials.json");
@@ -27,6 +33,7 @@ let mainWindow;
 let tabs = [];
 let activeTabId = null;
 let chromeHeight = TAB_BAR_HEIGHT;
+let sidePanelWidth = 0;
 let pendingAutofill = new Map();
 let isFullScreen = false;
 let isModalOpen = false;
@@ -66,6 +73,19 @@ const setTabActivity = (tab, isActive) => {
   try {
     wc.setAudioMuted(!isActive);
   } catch (_err) {}
+  // The page process feeds Flash its mouse and keyboard input, so the tab being
+  // played gets a priority bump too; tabs in the background give it back.
+  if (settings && settings.performanceMode !== false) {
+    try {
+      const pid = wc.getOSProcessId();
+      if (pid > 0) {
+        os.setPriority(
+          pid,
+          isActive ? os.constants.priority.PRIORITY_ABOVE_NORMAL : os.constants.priority.PRIORITY_NORMAL
+        );
+      }
+    } catch (_err) {}
+  }
 };
 
 const pluginName = "pepflashplayer.dll";
@@ -74,7 +94,7 @@ const pluginPath = app.isPackaged
   : path.join(__dirname, pluginName);
 
 app.commandLine.appendSwitch("ppapi-flash-path", pluginPath);
-app.commandLine.appendSwitch("ppapi-flash-version", "17.0.0.169");
+app.commandLine.appendSwitch("ppapi-flash-version", "29.0.0.171");
 app.commandLine.appendSwitch("enable-autofill");
 app.commandLine.appendSwitch("enable-autofill-profile");
 app.commandLine.appendSwitch("enable-features", "AutofillServerCommunication");
@@ -91,6 +111,7 @@ const loadSettings = () => {
       gpuAcceleration: true,
       clientName: "Your Name",
       rankIcon: "none",
+    clientIcon: "",
       useCustomUA: false,
       customUserAgent: "",
       theme: "dark",
@@ -107,13 +128,117 @@ settings = Object.assign(
     gpuAcceleration: true,
     clientName: "Your Name",
     rankIcon: "none",
+    clientIcon: "",
     useCustomUA: false,
     customUserAgent: "",
     theme: "dark",
     saveLogin: false,
+    performanceMode: true,
+    lowDpiRender: false,
+    flashForceDirect: true,
+    flashQuality: "default",
+    flashMemoryLimitMB: 1000,
+    flashAutoTrim: true,
+    flashAutoRestart: false,
   },
   settings
 );
+
+// ---- Flash performance switches (must be set before app is ready) ----
+if (settings.gpuAcceleration === false) {
+  app.disableHardwareAcceleration();
+} else if (settings.performanceMode !== false && !settings.gpuSafeMode) {
+  // Without these, Chromium silently drops Flash/Stage3D to software rendering
+  // on GPUs/drivers it does not like, which is the #1 cause of in-game stutter.
+  app.commandLine.appendSwitch("ignore-gpu-blacklist");
+  app.commandLine.appendSwitch("enable-gpu-rasterization");
+  app.commandLine.appendSwitch("enable-zero-copy");
+  // Laptops with two GPUs: always take the fast one.
+  app.commandLine.appendSwitch("force_high_performance_gpu");
+}
+if (settings.performanceMode !== false) {
+  // Keep the game running at full speed when the window is unfocused,
+  // covered by another window or minimized.
+  app.commandLine.appendSwitch("disable-renderer-backgrounding");
+  app.commandLine.appendSwitch("disable-background-timer-throttling");
+  app.commandLine.appendSwitch("disable-backgrounding-occluded-windows");
+  app.commandLine.appendSwitch("disable-features", "CalculateNativeWinOcclusion");
+  // Room for the game's maps, ships and sounds to stay cached between sessions
+  // instead of being downloaded (and stuttering in) again.
+  app.commandLine.appendSwitch("disk-cache-size", String(1024 * 1024 * 1024));
+  // Never let Chromium throttle/pause Flash content as "peripheral".
+  app.commandLine.appendSwitch("override-plugin-power-saver-for-testing", "never");
+}
+// The switches above override Chromium's own caution about bad drivers. On a
+// computer where that caution was justified the graphics process keeps dying;
+// after three crashes we give up on them for good and restart without them, so
+// nobody ends up with a client that cannot even open its settings.
+let gpuCrashCount = 0;
+app.on("gpu-process-crashed", () => {
+  gpuCrashCount += 1;
+  if (gpuCrashCount < 3 || settings.gpuSafeMode || settings.gpuAcceleration === false) return;
+  if (settings.performanceMode === false) return;
+  settings.gpuSafeMode = true;
+  try {
+    fs.writeFileSync(SETTINGS_FILE, JSON.stringify(settings, null, 2), "utf8");
+  } catch (_err) {}
+  app.relaunch();
+  app.exit(0);
+});
+
+// ---- Flash Player's own configuration (mms.cfg) ----
+// Flash reads this file from its data folder inside our profile when it
+// starts. Only the keys listed here are ours; anything else already in the
+// file is left alone.
+const writeFlashConfig = () => {
+  const partition = SESSION_PARTITION.replace(/^persist:/, "");
+  const dir = path.join(
+    app.getPath("userData"),
+    "Partitions",
+    partition,
+    "Pepper Data",
+    "Shockwave Flash",
+    "System"
+  );
+  const file = path.join(dir, "mms.cfg");
+  const fastGpu =
+    settings.gpuAcceleration !== false && settings.performanceMode !== false && !settings.gpuSafeMode;
+  const ours = {
+    // no update checks, crash uploads or uninstall nags in the background
+    AutoUpdateDisable: "1",
+    SilentAutoUpdateEnable: "0",
+    ErrorReportingEnable: "0",
+    EOLUninstallDisable: "1",
+    // Flash has its own list of graphics cards and drivers it refuses to
+    // accelerate (old drivers, little video memory). Skip that check.
+    OverrideGPUValidation: fastGpu ? "1" : null,
+  };
+  let kept = [];
+  try {
+    kept = fs
+      .readFileSync(file, "utf8")
+      .split(/\r?\n/)
+      .filter((line) => line.trim() && !(line.split("=")[0].trim() in ours));
+  } catch (_err) {}
+  const lines = kept.concat(
+    Object.keys(ours)
+      .filter((key) => ours[key] !== null)
+      .map((key) => key + "=" + ours[key])
+  );
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(file, lines.join("\r\n") + "\r\n", "utf8");
+};
+try {
+  writeFlashConfig();
+} catch (_err) {
+  // read-only profile or similar: Flash simply runs with its defaults
+}
+
+if (settings.lowDpiRender) {
+  // On 125%/150% scaled displays Flash has to draw 1.5-2.25x the pixels.
+  app.commandLine.appendSwitch("high-dpi-support", "1");
+  app.commandLine.appendSwitch("force-device-scale-factor", "1");
+}
 
 Menu.setApplicationMenu(null);
 
@@ -253,7 +378,8 @@ const layoutActiveView = () => {
   activeTab.view.setBounds({
     x: 0,
     y: chromeHeight,
-    width,
+    // A settings/accounts panel docks on the right; the game keeps running beside it.
+    width: Math.max(width - sidePanelWidth, 200),
     height: Math.max(height - chromeHeight, 200),
   });
   activeTab.view.setAutoResize({ width: true, height: true });
@@ -272,6 +398,8 @@ const attachViewEvents = (tab) => {
   });
 
   view.webContents.on("did-finish-load", () => {
+    // a navigation can move the page to a new process; re-apply its priority
+    setTabActivity(tab, tab.id === activeTabId);
     tab.url = view.webContents.getURL();
     broadcastState();
     commitPendingAutofill(view.webContents);
@@ -280,6 +408,16 @@ const attachViewEvents = (tab) => {
   view.webContents.on("did-start-loading", broadcastState);
   view.webContents.on("did-stop-loading", broadcastState);
   view.webContents.on("did-fail-load", () => pendingAutofill.delete(view.webContents.id));
+
+  // Flash died (out of memory, crash, or our own "Restart Flash") -> bring the game back.
+  view.webContents.on("plugin-crashed", () => {
+    const now = Date.now();
+    if (now - (tab.lastPluginRecovery || 0) < 15000) return; // avoid crash loops
+    tab.lastPluginRecovery = now;
+    setTimeout(() => {
+      if (!view.webContents.isDestroyed()) view.webContents.reload();
+    }, 400);
+  });
 
   view.webContents.on("new-window", (event, url) => {
     event.preventDefault();
@@ -382,6 +520,7 @@ const createTab = (url = DEFAULT_URL, activate = true) => {
   const view = new BrowserView({
     webPreferences: {
       plugins: true,
+      spellcheck: false,
       nodeIntegration: false,
       nativeWindowOpen: true,
       partition: SESSION_PARTITION,
@@ -587,7 +726,274 @@ const registerShortcuts = () => {
   safeRegister("F11", toggleFullscreen);
 };
 
-ipcMain.handle("tabs:create", (_event, url) => createTab(url || DEFAULT_URL, false));
+// ---- Flash memory watchdog ----
+// Flash leaks inside its own plugin process; the only real cure is a fresh
+// process. We watch it, show the number in the toolbar and restart on demand
+// (or automatically if the user opted in).
+const PERF_INTERVAL_MS = 3000;
+const boostedPids = new Set();
+const qosPids = new Set();
+let allPids = [];
+let gpuPids = [];
+let psBusy = false;
+
+// Small Windows calls that Node has no API for run in a throwaway PowerShell
+// process, one at a time, so the game never waits on them. The command is
+// passed as plain readable text: encoded commands look like malware to
+// antivirus software, and this client runs on other people's computers.
+// If PowerShell is missing or blocked the call just fails and nothing else
+// is affected.
+const runPowerShell = (script) =>
+  new Promise((resolve) => {
+    if (process.platform !== "win32" || psBusy) return resolve(false);
+    psBusy = true;
+    try {
+      execFile(
+        "powershell.exe",
+        ["-NoProfile", "-NonInteractive", "-Command", script],
+        { windowsHide: true, timeout: 20000 },
+        (err) => {
+          psBusy = false;
+          resolve(!err);
+        }
+      );
+    } catch (_err) {
+      psBusy = false;
+      resolve(false);
+    }
+  });
+
+const forEachPid = (pids, call) =>
+  "foreach ($id in " + pids.join(",") + ") { try { [void]" + call + "((Get-Process -Id $id).Handle) } catch {} }";
+
+// Windows 11 quietly slows processes it considers "background": their timers
+// get coarse and, on CPUs with performance + efficiency cores, their threads
+// are parked on the slow cores. Flash runs in a windowless helper process, so
+// it is the first victim whenever the client is not the focused window.
+// This opts every process of the client out of that throttling. Windows 10
+// only knows the first half of the request, hence the second attempt.
+const QOS_SCRIPT =
+  "Add-Type -Name Qos -Namespace DoClient -MemberDefinition '" +
+  "[StructLayout(LayoutKind.Sequential)] public struct S { public uint Version; public uint ControlMask; public uint StateMask; } " +
+  '[DllImport("kernel32.dll")] public static extern bool SetProcessInformation(IntPtr h, int c, ref S s, int size); ' +
+  "public static bool Off(IntPtr h) { S s; s.Version = 1; s.StateMask = 0; " +
+  "s.ControlMask = 5; if (SetProcessInformation(h, 4, ref s, 12)) return true; " +
+  "s.ControlMask = 1; return SetProcessInformation(h, 4, ref s, 12); }'; ";
+
+const TRIM_SCRIPT =
+  "Add-Type -Name Mem -Namespace DoClient -MemberDefinition '" +
+  '[DllImport("psapi.dll")] public static extern bool EmptyWorkingSet(IntPtr h);\'; ';
+
+const disablePowerThrottling = () => {
+  if (settings.performanceMode === false || psBusy) return;
+  const fresh = allPids.filter((pid) => Number.isInteger(pid) && !qosPids.has(pid));
+  if (!fresh.length) return;
+  fresh.forEach((pid) => qosPids.add(pid));
+  runPowerShell(QOS_SCRIPT + forEachPid(fresh, "[DoClient.Qos]::Off"));
+};
+let flashPids = [];
+let lastAutoRestart = 0;
+let lastTrim = 0;
+let trimCooldown = 60000;
+let trimBusy = false;
+let perfTimer = null;
+let sleepBlockerId = null;
+
+// A game left running must not be suspended by Windows going to sleep.
+const syncSleepBlocker = (flashRunning) => {
+  if (flashRunning && sleepBlockerId === null) {
+    sleepBlockerId = powerSaveBlocker.start("prevent-app-suspension");
+  } else if (!flashRunning && sleepBlockerId !== null) {
+    powerSaveBlocker.stop(sleepBlockerId);
+    sleepBlockerId = null;
+  }
+};
+
+const isFlashProcess = (m) => /pepper|ppapi|plugin/i.test(m.type || "") && !/broker/i.test(m.type || "");
+
+const collectPerfStats = () => {
+  let metrics;
+  try {
+    metrics = app.getAppMetrics();
+  } catch (_err) {
+    return null;
+  }
+  let flashKB = 0;
+  let flashCommitKB = 0;
+  let totalKB = 0;
+  let cpu = 0;
+  const pids = [];
+  allPids = metrics.map((m) => m.pid);
+  gpuPids = metrics.filter((m) => /gpu/i.test(m.type || "")).map((m) => m.pid);
+  metrics.forEach((m) => {
+    const mem = m.memory || {};
+    // workingSetSize = RAM actually occupied right now (what a trim frees);
+    // privateBytes = everything Flash has allocated, including what was paged out.
+    const kb = mem.workingSetSize || 0;
+    totalKB += kb;
+    cpu += (m.cpu && m.cpu.percentCPUUsage) || 0;
+    if (isFlashProcess(m)) {
+      flashKB += kb;
+      flashCommitKB += mem.privateBytes || kb;
+      pids.push(m.pid);
+    }
+  });
+  flashPids = pids;
+  return {
+    flashMB: Math.round(flashKB / 1024),
+    flashCommitMB: Math.round(flashCommitKB / 1024),
+    totalMB: Math.round(totalKB / 1024),
+    cpu: Math.round(cpu),
+    flashRunning: pids.length > 0,
+    limitMB: Number(settings.flashMemoryLimitMB) || 0,
+  };
+};
+
+const boostFlashPriority = () => {
+  if (settings.performanceMode === false) return;
+  // Flash draws through the GPU process, so both get the bump.
+  flashPids.concat(gpuPids).forEach((pid) => {
+    if (boostedPids.has(pid)) return;
+    boostedPids.add(pid);
+    try {
+      os.setPriority(pid, os.constants.priority.PRIORITY_ABOVE_NORMAL);
+    } catch (_err) {
+      // not fatal, the game just keeps normal priority
+    }
+  });
+};
+
+// Frees Flash's RAM without touching the game: Windows is asked to drop the
+// plugin's working set. Memory the game leaked and never reads again leaves
+// physical RAM for good; pages it still uses come straight back on next access.
+// Runs in a short-lived helper process, so the game itself never stalls on it.
+const trimFlashMemory = async () => {
+  const pids = flashPids.filter((pid) => Number.isInteger(pid));
+  if (trimBusy || !pids.length) return false;
+  trimBusy = true;
+  const ok = await runPowerShell(TRIM_SCRIPT + forEachPid(pids, "[DoClient.Mem]::EmptyWorkingSet"));
+  trimBusy = false;
+  return ok;
+};
+
+const restartFlash = () => {
+  collectPerfStats();
+  if (!flashPids.length) return false;
+  // Killing the plugin process frees everything it leaked; every tab that was
+  // using Flash gets "plugin-crashed" and reloads itself.
+  flashPids.forEach((pid) => {
+    try {
+      process.kill(pid);
+    } catch (_err) {}
+    boostedPids.delete(pid);
+  });
+  return true;
+};
+
+const perfTick = () => {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  const stats = collectPerfStats();
+  if (!stats) return;
+  boostFlashPriority();
+  disablePowerThrottling();
+  syncSleepBlocker(stats.flashRunning);
+  const now = Date.now();
+  // Trimming only helps a computer that is actually short on RAM. With plenty
+  // free it frees nothing useful and just makes Flash fetch its pages back, so
+  // it is skipped unless less than a fifth of the system's memory is left.
+  const memoryIsTight = os.freemem() < os.totalmem() * 0.2;
+  if (
+    settings.flashAutoTrim !== false &&
+    memoryIsTight &&
+    stats.limitMB > 0 &&
+    stats.flashMB >= stats.limitMB &&
+    now - lastTrim > trimCooldown &&
+    !psBusy
+  ) {
+    // If RAM climbed straight back over the limit, the game really is using
+    // that memory; trimming it again and again would only cost FPS, so back off.
+    trimCooldown = lastTrim && now - lastTrim < trimCooldown * 2 ? Math.min(trimCooldown * 2, 600000) : 60000;
+    lastTrim = now;
+    trimFlashMemory();
+  }
+  if (
+    settings.flashAutoRestart &&
+    stats.limitMB > 0 &&
+    stats.flashCommitMB >= stats.limitMB &&
+    now - lastAutoRestart > 120000 &&
+    // never in the middle of play: only once mouse and keyboard have been
+    // untouched for two minutes
+    powerMonitor.getSystemIdleTime() >= 120
+  ) {
+    lastAutoRestart = now;
+    restartFlash();
+  }
+  mainWindow.webContents.send("perf:stats", stats);
+};
+
+const startPerfMonitor = () => {
+  if (perfTimer) clearInterval(perfTimer);
+  perfTimer = setInterval(perfTick, PERF_INTERVAL_MS);
+};
+
+ipcMain.handle("flash:restart", () => restartFlash());
+ipcMain.handle("flash:trim", () => {
+  collectPerfStats();
+  return trimFlashMemory();
+});
+
+ipcMain.handle("tabs:create", (_event, url) => createTab(url || DEFAULT_URL, true));
+ipcMain.handle("tabs:close-others", (_event, id) => {
+  if (!findTab(id)) return;
+  tabs
+    .filter((t) => t.id !== id)
+    .forEach((t) => closeTab(t.id));
+});
+ipcMain.handle("tabs:devtools", () => {
+  const tab = findTab(activeTabId);
+  if (tab) tab.view.webContents.openDevTools({ mode: "detach" });
+});
+
+// HTML drawn in the window always sits under the game view, so menus that must
+// overlap the game are native ones.
+ipcMain.handle("ui:menu", (_event, items) => {
+  if (!mainWindow || mainWindow.isDestroyed() || !Array.isArray(items)) return null;
+  return new Promise((resolve) => {
+    let picked = null;
+    const template = items.map((item) => {
+      if (item.separator) return { type: "separator" };
+      if (item.role) return { role: item.role };
+      return {
+        label: String(item.label || ""),
+        enabled: !item.disabled,
+        // shown as a hint only; the real shortcuts are handled elsewhere
+        accelerator: item.accelerator || undefined,
+        registerAccelerator: false,
+        click: () => {
+          picked = item.id;
+        },
+      };
+    });
+    Menu.buildFromTemplate(template).popup({
+      window: mainWindow,
+      callback: () => setTimeout(() => resolve(picked), 30),
+    });
+  });
+});
+
+ipcMain.on("ui:side-panel", (_event, width) => {
+  sidePanelWidth = typeof width === "number" && width > 0 ? Math.round(width) : 0;
+  layoutActiveView();
+});
+
+// Fill and submit the login form of the active tab with a saved account.
+ipcMain.handle("credentials:apply", (_event, account) => {
+  const tab = findTab(activeTabId);
+  if (!tab || !account) return false;
+  tab.view.webContents.send("credentials:apply", account);
+  tab.view.webContents.focus();
+  return true;
+});
 ipcMain.handle("tabs:activate", (_event, id) => setActiveTab(id));
 ipcMain.handle("tabs:close", (_event, id) => closeTab(id || activeTabId));
 
@@ -789,19 +1195,28 @@ ipcMain.handle("cookies:clear", async () => {
   }
 });
 ipcMain.handle("dialog:confirm", async (_e, { message, detail }) => {
-  const res = await app.whenReady().then(() =>
-    BrowserWindow.getFocusedWindow()
-      ?.webContents
-      ?.executeJavaScript(`window.confirm(${JSON.stringify(message + (detail ? "\\n\\n" + detail : ""))})`)
-  );
-  return !!res;
+  if (!mainWindow || mainWindow.isDestroyed()) return false;
+  const { response } = await dialog.showMessageBox(mainWindow, {
+    type: "question",
+    buttons: ["OK", "Cancel"],
+    defaultId: 0,
+    cancelId: 1,
+    noLink: true,
+    title: app.getName(),
+    message: message || "",
+    detail: detail || undefined,
+  });
+  return response === 0;
 });
 ipcMain.handle("dialog:info", async (_e, { message }) => {
-  await app.whenReady().then(() =>
-    BrowserWindow.getFocusedWindow()
-      ?.webContents
-      ?.executeJavaScript(`window.alert(${JSON.stringify(message || "")})`)
-  );
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  await dialog.showMessageBox(mainWindow, {
+    type: "info",
+    buttons: ["OK"],
+    noLink: true,
+    title: app.getName(),
+    message: message || "",
+  });
 });
 ipcMain.handle("window:toggle-fullscreen", () => {
   toggleFullscreen();
@@ -813,7 +1228,7 @@ ipcMain.on("ui:header-height", (_event, height) => {
     return;
   }
   if (typeof height === "number" && !Number.isNaN(height)) {
-    chromeHeight = Math.max(height, TAB_BAR_HEIGHT);
+    chromeHeight = Math.max(height, MIN_CHROME_HEIGHT);
     layoutActiveView();
   }
 });
@@ -856,7 +1271,9 @@ ipcMain.on("settings:update", (_event, newSettings) => {
   // Merge and persist the new settings in-memory
   try {
     // Update runtime settings object
+    const previousUA = JSON.stringify([settings.useCustomUA, settings.customUserAgent]);
     settings = Object.assign(settings || {}, newSettings || {});
+    const uaChanged = previousUA !== JSON.stringify([settings.useCustomUA, settings.customUserAgent]);
 
     // DNS handling (maintained for backward compatibility)
     let dnsAddress = "default";
@@ -892,7 +1309,9 @@ ipcMain.on("settings:update", (_event, newSettings) => {
           const ua = pickUserAgent(tab.url || "");
           tab.view.webContents.setUserAgent(ua);
         } catch (_) {}
-        tab.view.webContents.reload();
+        // Only a user agent change needs a reload; never kick the player out
+        // of the game for renaming the client or switching the theme.
+        if (uaChanged) tab.view.webContents.reload();
       }
     });
 
@@ -916,6 +1335,11 @@ ipcMain.on("settings:update", (_event, newSettings) => {
 });
 
 // Expose a simple handler so renderer can retrieve the authoritative settings
+// Page preload needs the settings before the page starts building its DOM.
+ipcMain.on("settings:get-sync", (event) => {
+  event.returnValue = settings;
+});
+
 ipcMain.handle("settings:get", () => {
   return settings;
 });
@@ -939,18 +1363,13 @@ ipcMain.on("settings:save-file", (_event, settings) => {
 ipcMain.on("ranks:list", (event) => {
   const ranksDir = path.join(__dirname, "ranks");
   try {
-    if (!fs.existsSync(ranksDir)) {
-      event.reply("ranks:list", []);
-      return;
-    }
-    const files = fs.readdirSync(ranksDir);
-    const ranks = files
-      .filter((f) => f.startsWith("rank_") && f.endsWith(".png"))
+    const ranks = fs
+      .readdirSync(ranksDir)
+      .filter((f) => /^rank_\d+\.png$/.test(f))
       .map((f) => f.replace("rank_", "").replace(".png", ""))
-      .sort((a, b) => parseInt(a) - parseInt(b));
+      .sort((a, b) => parseInt(a, 10) - parseInt(b, 10));
     event.reply("ranks:list", ranks);
-  } catch (err) {
-    console.error("Failed to read ranks folder:", err);
+  } catch (_err) {
     event.reply("ranks:list", []);
   }
 });
@@ -1032,6 +1451,7 @@ ipcMain.on("page:context-menu", (_event, data) => {
 app.on("ready", () => {
   createMainWindow();
   createTab(DEFAULT_URL, true);
+  startPerfMonitor();
 });
 
 app.on("window-all-closed", () => {

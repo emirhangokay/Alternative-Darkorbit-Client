@@ -1,5 +1,72 @@
 const { ipcRenderer } = require("electron");
 
+// ---- Start Flash with the fastest settings ----
+// Flash only renders through the graphics card (Stage3D, fast blitting) when
+// the page embeds it with wmode="direct". Many game pages ship "gpu", "opaque"
+// or "transparent" instead, which silently drops the game to CPU rendering.
+// We correct the embed the moment the page inserts it, before Flash starts.
+// The optional quality override works the same way.
+(() => {
+  let pageSettings = null;
+  try {
+    pageSettings = ipcRenderer.sendSync("settings:get-sync");
+  } catch (_err) {}
+  if (!pageSettings) return;
+
+  const forced = {};
+  if (pageSettings.performanceMode !== false && pageSettings.flashForceDirect !== false) {
+    forced.wmode = "direct";
+  }
+  if (["low", "medium", "high"].includes(pageSettings.flashQuality)) {
+    forced.quality = pageSettings.flashQuality;
+  }
+  const names = Object.keys(forced);
+  if (!names.length) return;
+
+  const looksLikeFlash = (el) => {
+    const type = (el.getAttribute("type") || "").toLowerCase();
+    if (type.includes("shockwave-flash")) return true;
+    const src = (el.getAttribute("src") || el.getAttribute("data") || "").toLowerCase();
+    if (src.split("?")[0].endsWith(".swf")) return true;
+    if (el.tagName === "OBJECT") {
+      const movie = el.querySelector('param[name="movie" i]');
+      return !!movie && (movie.getAttribute("value") || "").toLowerCase().includes(".swf");
+    }
+    return false;
+  };
+
+  const fixElement = (el) => {
+    if (!el || (el.tagName !== "EMBED" && el.tagName !== "OBJECT") || !looksLikeFlash(el)) return;
+    names.forEach((name) => {
+      const value = forced[name];
+      if (el.tagName === "EMBED") {
+        if ((el.getAttribute(name) || "").toLowerCase() !== value) el.setAttribute(name, value);
+        return;
+      }
+      const param = el.querySelector('param[name="' + name + '" i]');
+      if (param) {
+        if ((param.getAttribute("value") || "").toLowerCase() !== value) param.setAttribute("value", value);
+      } else {
+        const added = document.createElement("param");
+        added.setAttribute("name", name);
+        added.setAttribute("value", value);
+        el.appendChild(added);
+      }
+    });
+  };
+
+  const scan = (node) => {
+    if (!node || node.nodeType !== 1) return;
+    if (node.tagName === "PARAM") return fixElement(node.parentElement);
+    fixElement(node);
+    if (node.querySelectorAll) node.querySelectorAll("embed, object").forEach(fixElement);
+  };
+
+  new MutationObserver((mutations) => {
+    mutations.forEach((m) => m.addedNodes.forEach(scan));
+  }).observe(document, { childList: true, subtree: true });
+})();
+
 // Expose API to close current tab from page scripts
 window.electronAPI = {
   closeCurrentTab: () => {
@@ -405,6 +472,12 @@ window.addEventListener("DOMContentLoaded", () => {
   attachAutofill();
   // showAccountPicker(); // Removed - only show from tab bar button
   document.addEventListener("submit", captureLoginOnSubmit, true);
+});
+
+// Accounts panel in the client chrome asks us to log in with a saved account
+ipcRenderer.on("credentials:apply", (_event, account) => {
+  if (!account) return;
+  applyCredentials(account.username, account.password);
 });
 
 // IPC listener for showing credentials manager modal

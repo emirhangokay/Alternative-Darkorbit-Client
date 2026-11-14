@@ -2,40 +2,48 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>DarkOrbit Client</title>
-    <link
-      rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
-    />
     <style>
       :root {
-        --bg-primary: #0f1419;
-        --bg-secondary: #1a1f2e;
-        --bg-tertiary: #252d3d;
-        --accent: #00d4ff;
-        --accent-hover: #00e6ff;
-        --success: #4ade80;
-        --danger: #ff4757;
-        --warning: #ffa502;
-        --text-primary: #f0f4f8;
-        --text-secondary: #a0a9b8;
-        --border-color: #2a3342;
+        --bg-0: #0a0d13;
+        --bg-1: #131822;
+        --bg-2: #1b2230;
+        --bg-3: #273143;
+        --line: #232c3b;
+        --text: #e6ebf2;
+        --muted: #8a95a8;
+        --accent: #3ec5ff;
+        --accent-ink: #04202e;
+        --accent-soft: rgba(62, 197, 255, 0.14);
+        --success: #3ddc84;
+        --warning: #ffb020;
+        --danger: #ff5263;
+        --shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+
+        /* legacy names still used by a few inline styles */
+        --bg-primary: var(--bg-0);
+        --bg-secondary: var(--bg-1);
+        --bg-tertiary: var(--bg-2);
+        --text-primary: var(--text);
+        --text-secondary: var(--muted);
+        --border-color: var(--line);
       }
 
       body.theme-light {
-        --bg-primary: #f5f7fb;
-        --bg-secondary: #ffffff;
-        --bg-tertiary: #eef2f7;
-        --accent: #0ea5e9;
-        --accent-hover: #38bdf8;
+        --bg-0: #dfe5ee;
+        --bg-1: #ffffff;
+        --bg-2: #f0f3f8;
+        --bg-3: #dde4ee;
+        --line: #d5dce8;
+        --text: #101828;
+        --muted: #5d6779;
+        --accent: #0284c7;
+        --accent-ink: #ffffff;
+        --accent-soft: rgba(2, 132, 199, 0.12);
         --success: #16a34a;
-        --danger: #ef4444;
-        --warning: #f59e0b;
-        --text-primary: #0f172a;
-        --text-secondary: #475569;
-        --border-color: #dbe2ee;
+        --warning: #d97706;
+        --danger: #dc2626;
+        --shadow: 0 12px 32px rgba(15, 23, 42, 0.18);
       }
 
       * {
@@ -44,14 +52,19 @@
         padding: 0;
       }
 
+      [hidden] {
+        display: none !important;
+      }
+
       html,
       body {
         width: 100%;
         height: 100%;
-        font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-        color: var(--text-primary);
-        background: var(--bg-primary);
         overflow: hidden;
+        font-family: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+        font-size: 13px;
+        color: var(--text);
+        background: var(--bg-0);
       }
 
       body {
@@ -60,1265 +73,1255 @@
         -webkit-user-select: none;
       }
 
+      button,
+      input,
+      select {
+        font: inherit;
+        color: inherit;
+      }
+
+      button {
+        cursor: pointer;
+      }
+
+      svg.ic {
+        width: 16px;
+        height: 16px;
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 1.8;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        flex-shrink: 0;
+        pointer-events: none;
+      }
+
+      /* ---------- header ---------- */
       header {
-        display: flex;
-        flex-direction: column;
-        gap: 0;
-        background: var(--bg-secondary);
-        border-bottom: 1px solid var(--border-color);
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        z-index: 10;
+        position: relative;
+        flex-shrink: 0;
+        background: var(--bg-0);
       }
 
-      .top-row {
-        display: grid;
-        grid-template-columns: auto 1fr auto;
-        align-items: center;
-        gap: 12px;
-        padding: 8px 12px;
+      .tab-row {
+        height: 40px;
+        display: flex;
+        align-items: flex-end;
+        padding-left: 10px;
         -webkit-app-region: drag;
       }
 
-      .logo {
+      .brand {
+        height: 40px;
         display: flex;
         align-items: center;
-        gap: 10px;
-        -webkit-app-region: drag;
+        gap: 8px;
+        padding-right: 14px;
+        flex-shrink: 0;
+        max-width: 200px;
       }
 
-      .logo-mark {
-        width: 32px;
-        height: 32px;
-        border-radius: 8px;
-        background: linear-gradient(135deg, var(--accent), #00a8cc);
-        background-size: cover;
-        background-position: center;
-        box-shadow: 0 4px 12px rgba(0, 212, 255, 0.25);
-        -webkit-app-region: drag;
-        display: flex;
-        align-items: center;
-        justify-content: center;
+      .brand-mark {
+        width: 22px;
+        height: 22px;
+        border-radius: 6px;
+        background: linear-gradient(135deg, var(--accent), #2563eb) center / cover no-repeat;
         flex-shrink: 0;
       }
 
-      .logo-text {
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        gap: 1px;
-        -webkit-app-region: drag;
+      .brand-mark.custom {
+        background-color: transparent;
       }
 
-      .logo-text strong {
-        font-weight: 700;
-        letter-spacing: 0.3px;
-        font-size: 13px;
-        color: var(--text-primary);
+      .brand-mark.rank {
+        border-radius: 0;
+        background-color: transparent;
+        background-size: contain;
       }
 
-      .logo-text span {
-        color: var(--text-secondary);
-        font-size: 11px;
-        font-weight: 500;
-      }
-
-      .toolbar {
-        display: grid;
-        grid-template-columns: auto auto auto auto 1fr auto auto auto;
-        align-items: center;
-        gap: 8px;
-        padding: 0 8px;
-        -webkit-app-region: drag;
-      }
-
-      .controls {
-        display: flex;
-        align-items: center;
-        gap: 4px;
-        -webkit-app-region: no-drag;
-      }
-
-      .btn {
-        appearance: none;
-        border: 1px solid var(--border-color);
-        background: var(--bg-tertiary);
-        color: var(--text-primary);
-        padding: 6px 12px;
-        border-radius: 6px;
-        cursor: pointer;
-        transition: all 0.2s ease;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        gap: 6px;
-        font-weight: 500;
-        font-size: 12px;
-        -webkit-app-region: no-drag;
-      }
-
-      .btn:hover {
-        background: var(--bg-secondary);
-        border-color: var(--accent);
-        color: var(--accent);
-      }
-
-      .btn.icon {
-        width: 32px;
-        height: 32px;
-        padding: 0;
-      }
-
-      .address-bar {
-        height: 36px;
-        background: var(--bg-tertiary);
-        border: 1px solid var(--border-color);
-        border-radius: 6px;
-        display: grid;
-        grid-template-columns: 1fr auto;
-        align-items: center;
-        padding: 0 12px 0 12px;
-        gap: 8px;
-        -webkit-app-region: no-drag;
-      }
-
-      .address-bar:focus-within {
-        border-color: var(--accent);
-        background: var(--bg-secondary);
-      }
-
-      .address-bar input {
-        width: 100%;
-        background: transparent;
-        border: none;
-        color: var(--text-primary);
-        font-size: 13px;
-        outline: none;
-      }
-
-      .address-bar input::placeholder {
-        color: var(--text-secondary);
-      }
-
-      .status-dot {
-        width: 6px;
-        height: 6px;
-        border-radius: 50%;
-        background: var(--text-secondary);
-        box-shadow: none;
-        transition: background 0.2s ease;
-      }
-
-      .status-dot.loading {
-        background: var(--accent);
-        animation: status-pulse 1s ease-in-out infinite;
-      }
-
-      @keyframes status-pulse {
-        0%, 100% {
-          box-shadow: 0 0 0 0 rgba(0, 212, 255, 0.4);
-        }
-        50% {
-          box-shadow: 0 0 0 4px rgba(0, 212, 255, 0);
-        }
-      }
-
-      .window-controls {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        -webkit-app-region: no-drag;
-      }
-
-      .tab-container {
-        background: var(--bg-primary);
-        border-top: 1px solid var(--border-color);
-        padding: 0;
-        display: flex;
-        align-items: center;
-        gap: 4px;
-        padding: 4px 8px;
+      .brand-name {
+        font-weight: 600;
+        font-size: 12.5px;
+        letter-spacing: 0.2px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
       }
 
       .tabs {
         display: flex;
-        gap: 4px;
-        flex: 1;
-        overflow-x: auto;
-        overflow-y: hidden;
-        padding: 0;
-        scrollbar-width: thin;
-        scrollbar-color: var(--border-color) transparent;
-      }
-
-      .tabs::-webkit-scrollbar {
-        height: 6px;
-      }
-
-      .tabs::-webkit-scrollbar-track {
-        background: transparent;
-      }
-
-      .tabs::-webkit-scrollbar-thumb {
-        background: var(--border-color);
-        border-radius: 3px;
-      }
-
-      .tabs::-webkit-scrollbar-thumb:hover {
-        background: var(--text-secondary);
+        align-items: flex-end;
+        gap: 2px;
+        min-width: 0;
+        flex: 0 1 auto;
+        height: 34px;
+        -webkit-app-region: no-drag;
       }
 
       .tab {
-        min-width: 120px;
-        max-width: 200px;
-        height: 32px;
-        border-radius: 6px;
-        border: 1px solid var(--border-color);
-        background: var(--bg-secondary);
-        display: grid;
-        grid-template-columns: 1fr auto;
-        align-items: center;
-        padding: 0 10px;
-        gap: 8px;
-        cursor: pointer;
-        transition: all 0.2s ease;
-        color: var(--text-secondary);
-        outline: none;
         position: relative;
+        flex: 0 1 210px;
+        width: 210px;
+        min-width: 72px;
+        height: 34px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 0 6px 0 12px;
+        border-radius: 9px 9px 0 0;
+        color: var(--muted);
+        background: transparent;
+        transition: background 0.12s ease, color 0.12s ease;
       }
 
       .tab:hover {
-        border-color: var(--border-color);
-        background: var(--bg-tertiary);
-        color: var(--text-primary);
+        background: var(--bg-2);
+        color: var(--text);
       }
 
       .tab.active {
+        background: var(--bg-1);
+        color: var(--text);
+      }
+
+      .tab.active::before {
+        content: "";
+        position: absolute;
+        left: 10px;
+        right: 10px;
+        top: 0;
+        height: 2px;
+        border-radius: 0 0 2px 2px;
         background: var(--accent);
-        border-color: var(--accent);
-        color: var(--bg-primary);
+      }
+
+      .tab.drop-target {
+        box-shadow: inset 2px 0 0 var(--accent);
+      }
+
+      .tab.dragging {
+        opacity: 0.45;
+      }
+
+      .tab .dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: var(--bg-3);
+        flex-shrink: 0;
+      }
+
+      .tab.active .dot {
+        background: var(--accent);
+      }
+
+      .tab.loading .dot {
+        width: 11px;
+        height: 11px;
+        margin: 0 -2px;
+        background: transparent;
+        border: 2px solid var(--bg-3);
+        border-top-color: var(--accent);
+        animation: spin 0.7s linear infinite;
+      }
+
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
       }
 
       .tab .title {
+        flex: 1;
+        min-width: 0;
         overflow: hidden;
-        text-overflow: ellipsis;
         white-space: nowrap;
-        font-weight: 500;
-        text-align: left;
+        text-overflow: ellipsis;
         font-size: 12px;
-      }
-
-      .tab .title small {
-        display: none;
-        font-size: 10px;
-      }
-
-      .tab .loader {
-        width: 4px;
-        height: 4px;
-        border-radius: 50%;
-        background: currentColor;
-        position: absolute;
-        left: 8px;
-        top: 14px;
-        opacity: 0;
-        animation: none;
-      }
-
-      .tab.loading .loader {
-        opacity: 1;
-        animation: tab-pulse 1s ease-in-out infinite;
-      }
-
-      @keyframes tab-pulse {
-        0%, 100% {
-          opacity: 0.5;
-        }
-        50% {
-          opacity: 1;
-        }
+        font-weight: 500;
       }
 
       .tab .close-btn {
-        appearance: none;
-        background: transparent;
+        width: 20px;
+        height: 20px;
         border: none;
-        color: currentColor;
-        width: 16px;
-        height: 16px;
-        cursor: pointer;
-        transition: all 0.2s ease;
-        font-size: 12px;
+        border-radius: 5px;
+        background: transparent;
         display: flex;
         align-items: center;
         justify-content: center;
-        -webkit-app-region: no-drag;
+        opacity: 0;
+        flex-shrink: 0;
+      }
+
+      .tab .close-btn svg.ic {
+        width: 12px;
+        height: 12px;
+      }
+
+      .tab:hover .close-btn,
+      .tab.active .close-btn {
+        opacity: 0.7;
       }
 
       .tab .close-btn:hover {
-        background: rgba(255, 71, 87, 0.2);
-        color: var(--danger);
+        opacity: 1;
+        background: var(--bg-3);
       }
 
-      .tab[draggable="true"] {
-        cursor: grab;
-      }
-
-      .tab[draggable="true"]:active {
-        cursor: grabbing;
-      }
-
-      .add-tab {
-        width: 28px;
-        height: 28px;
-        border-radius: 6px;
-        border: 1px solid var(--border-color);
-        background: var(--bg-secondary);
-        color: var(--text-primary);
-        cursor: pointer;
-        font-weight: 600;
-        transition: all 0.2s ease;
-        display: flex;
+      .icon-btn {
+        width: 32px;
+        height: 32px;
+        border: none;
+        border-radius: 8px;
+        background: transparent;
+        color: var(--muted);
+        display: inline-flex;
         align-items: center;
         justify-content: center;
-        font-size: 14px;
+        flex-shrink: 0;
+        transition: background 0.12s ease, color 0.12s ease;
         -webkit-app-region: no-drag;
       }
 
-      .add-tab:hover {
-        background: var(--bg-tertiary);
+      .icon-btn:hover {
+        background: var(--bg-2);
+        color: var(--text);
+      }
+
+      .icon-btn:disabled {
+        opacity: 0.35;
+        pointer-events: none;
+      }
+
+      .icon-btn.sm {
+        width: 28px;
+        height: 28px;
+        border-radius: 7px;
+      }
+
+      .tab-row .icon-btn {
+        align-self: center;
+      }
+
+      #add-tab {
+        margin-left: 4px;
+      }
+
+      .drag-spacer {
+        flex: 1;
+        min-width: 40px;
+        align-self: stretch;
+      }
+
+      .mem-pill {
+        align-self: center;
+        height: 24px;
+        padding: 0 10px 0 8px;
+        margin-right: 6px;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: var(--bg-1);
+        color: var(--muted);
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 11.5px;
+        font-weight: 600;
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+        -webkit-app-region: no-drag;
+      }
+
+      .mem-pill::before {
+        content: "";
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: var(--success);
+      }
+
+      .mem-pill:hover {
+        color: var(--text);
+        border-color: var(--bg-3);
+      }
+
+      .mem-pill.mid::before {
+        background: var(--warning);
+      }
+
+      .mem-pill.warn {
+        color: var(--danger);
+        border-color: var(--danger);
+      }
+
+      .mem-pill.warn::before {
+        background: var(--danger);
+      }
+
+      .window-controls {
+        display: flex;
+        align-self: stretch;
+        margin-left: 4px;
+        -webkit-app-region: no-drag;
+      }
+
+      .win-btn {
+        width: 44px;
+        border: none;
+        background: transparent;
+        color: var(--muted);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: background 0.12s ease, color 0.12s ease;
+      }
+
+      .win-btn svg.ic {
+        width: 14px;
+        height: 14px;
+        stroke-width: 1.5;
+      }
+
+      .win-btn:hover {
+        background: var(--bg-2);
+        color: var(--text);
+      }
+
+      .win-btn.close:hover {
+        background: #e81123;
+        color: #fff;
+      }
+
+      /* ---------- toolbar ---------- */
+      .toolbar {
+        position: relative;
+        height: 42px;
+        display: flex;
+        align-items: center;
+        gap: 2px;
+        padding: 0 8px;
+        background: var(--bg-1);
+        border-bottom: 1px solid var(--line);
+      }
+
+      body.compact:not(.finding) .toolbar {
+        display: none;
+      }
+
+      body.compact .tab-row {
+        border-bottom: 1px solid var(--line);
+      }
+
+      .address-bar {
+        flex: 1;
+        min-width: 120px;
+        height: 30px;
+        margin: 0 6px;
+        padding: 0 12px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        border: 1px solid transparent;
+        border-radius: 15px;
+        background: var(--bg-2);
+        color: var(--muted);
+        transition: border-color 0.12s ease, background 0.12s ease;
+      }
+
+      .address-bar:focus-within {
         border-color: var(--accent);
+        background: var(--bg-0);
+      }
+
+      .address-bar svg.ic {
+        width: 14px;
+        height: 14px;
+      }
+
+      .address-bar input {
+        flex: 1;
+        min-width: 0;
+        border: none;
+        outline: none;
+        background: transparent;
+        color: var(--text);
+        font-size: 12.5px;
+      }
+
+      .address-bar input::placeholder {
+        color: var(--muted);
+      }
+
+      .text-btn {
+        height: 30px;
+        padding: 0 12px 0 10px;
+        border: none;
+        border-radius: 8px;
+        background: transparent;
+        color: var(--muted);
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        font-size: 12px;
+        font-weight: 500;
+        white-space: nowrap;
+        transition: background 0.12s ease, color 0.12s ease;
+      }
+
+      .text-btn:hover,
+      .text-btn.on,
+      .icon-btn.on {
+        background: var(--bg-2);
+        color: var(--text);
+      }
+
+      .text-btn.on,
+      .icon-btn.on {
         color: var(--accent);
+      }
+
+      .load-bar {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        height: 2px;
+        overflow: hidden;
+        opacity: 0;
+        transition: opacity 0.2s ease;
+        pointer-events: none;
+      }
+
+      .load-bar.loading {
+        opacity: 1;
+      }
+
+      .load-bar::after {
+        content: "";
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        width: 30%;
+        background: var(--accent);
+        animation: none;
+      }
+
+      .load-bar.loading::after {
+        animation: load-slide 1.1s ease-in-out infinite;
+      }
+
+      @keyframes load-slide {
+        from {
+          left: -30%;
+        }
+        to {
+          left: 100%;
+        }
       }
 
       .find-bar {
         position: absolute;
-        right: 120px;
-        top: 50%;
-        transform: translateY(-50%);
+        right: 10px;
+        top: 5px;
+        height: 32px;
         display: none;
         align-items: center;
-        gap: 6px;
-        background: var(--bg-secondary);
-        border: 1px solid var(--border-color);
-        border-radius: 6px;
-        padding: 6px 8px;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-        -webkit-app-region: no-drag;
+        gap: 2px;
+        padding: 0 4px 0 12px;
+        border: 1px solid var(--accent);
+        border-radius: 16px;
+        background: var(--bg-0);
+        box-shadow: var(--shadow);
+        z-index: 5;
       }
 
       .find-bar input {
-        background: var(--bg-tertiary);
-        border: 1px solid var(--border-color);
-        border-radius: 4px;
-        color: var(--text-primary);
-        padding: 6px 8px;
-        min-width: 180px;
-        font-size: 12px;
+        width: 200px;
+        border: none;
+        outline: none;
+        background: transparent;
+        font-size: 12.5px;
       }
 
       .find-bar input::placeholder {
-        color: var(--text-secondary);
+        color: var(--muted);
       }
 
       .find-btn {
-        border: 1px solid var(--border-color);
-        background: var(--bg-tertiary);
-        color: var(--text-primary);
-        border-radius: 4px;
-        padding: 4px 6px;
-        cursor: pointer;
-        font-size: 11px;
-        transition: all 0.2s ease;
+        width: 24px;
+        height: 24px;
+        border: none;
+        border-radius: 12px;
+        background: transparent;
+        color: var(--muted);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .find-btn svg.ic {
+        width: 13px;
+        height: 13px;
       }
 
       .find-btn:hover {
-        border-color: var(--accent);
-        background: var(--accent);
-        color: var(--bg-primary);
+        background: var(--bg-2);
+        color: var(--text);
       }
 
-
-      body.fullscreen header,
-      body.fullscreen .find-bar {
-        display: none !important;
-        height: 0 !important;
-        min-height: 0 !important;
-        padding: 0 !important;
-        margin: 0 !important;
-        border: 0 !important;
-      }
-
-      .credentials-modal {
+      body.fullscreen header {
         display: none;
-        position: fixed;
+      }
+
+      /* ---------- stage + side panels ---------- */
+      .stage {
+        position: relative;
+        flex: 1;
+        min-height: 0;
+        background: var(--bg-0);
+      }
+
+      .panel {
+        position: absolute;
         top: 0;
-        left: 0;
         right: 0;
         bottom: 0;
-        background: rgba(0, 0, 0, 0.5);
-        z-index: 99999;
-        align-items: center;
-        justify-content: center;
-        pointer-events: none;
-      }
-
-      .credentials-modal.open {
-        display: flex !important;
-        pointer-events: auto !important;
-      }
-
-      .credentials-modal-content {
-        background: var(--bg-secondary);
-        border: 1px solid var(--border-color);
-        border-radius: 12px;
-        padding: 24px;
-        width: 500px;
-        max-height: 240px;
-        display: flex;
+        width: 380px;
+        display: none;
         flex-direction: column;
-        gap: 16px;
-        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
-        pointer-events: auto;
+        background: var(--bg-1);
+        border-left: 1px solid var(--line);
       }
 
-      .credentials-modal-header {
+      .panel.open {
+        display: flex;
+      }
+
+      .panel-head {
+        height: 48px;
+        flex-shrink: 0;
         display: flex;
         align-items: center;
         justify-content: space-between;
-        gap: 12px;
+        padding: 0 10px 0 18px;
+        border-bottom: 1px solid var(--line);
       }
 
-      .credentials-modal-header h3 {
-        margin: 0;
-        font-size: 16px;
+      .panel-head h2 {
+        font-size: 14px;
         font-weight: 600;
       }
 
-      .credentials-modal-close {
-        background: none;
-        border: none;
-        color: var(--text-secondary);
-        cursor: pointer;
-        font-size: 20px;
-        padding: 0;
-        width: 28px;
-        height: 28px;
+      .panel-body {
+        flex: 1;
+        min-height: 0;
+        overflow-y: auto;
+        padding: 6px 18px 18px;
+      }
+
+      .panel-body::-webkit-scrollbar {
+        width: 10px;
+      }
+
+      .panel-body::-webkit-scrollbar-thumb {
+        background: var(--bg-3);
+        border: 3px solid var(--bg-1);
+        border-radius: 5px;
+      }
+
+      .panel-foot {
+        flex-shrink: 0;
+        display: flex;
+        gap: 8px;
+        padding: 12px 18px;
+        border-top: 1px solid var(--line);
+      }
+
+      .section-title {
+        margin: 18px 0 8px;
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.8px;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+
+      .field {
+        margin-bottom: 12px;
+      }
+
+      .field > label {
+        display: block;
+        margin-bottom: 6px;
+        font-size: 12.5px;
+        font-weight: 500;
+      }
+
+      .input,
+      select.input {
+        width: 100%;
+        height: 34px;
+        padding: 0 11px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        outline: none;
+        background: var(--bg-2);
+        color: var(--text);
+        font-size: 12.5px;
+        -webkit-user-select: text;
+      }
+
+      .input:focus {
+        border-color: var(--accent);
+      }
+
+      .input:disabled {
+        opacity: 0.45;
+      }
+
+      .input::placeholder {
+        color: var(--muted);
+      }
+
+      .row {
         display: flex;
         align-items: center;
-        justify-content: center;
+        gap: 14px;
+        padding: 9px 0;
       }
 
-      .credentials-modal-close:hover {
-        color: var(--accent);
+      .row + .row {
+        border-top: 1px solid var(--line);
       }
 
-      .credentials-list {
+      .row-text {
+        flex: 1;
+        min-width: 0;
+      }
+
+      .row-text strong {
+        display: block;
+        font-size: 12.5px;
+        font-weight: 500;
+      }
+
+      .row-text span,
+      .hint {
+        display: block;
+        margin-top: 2px;
+        font-size: 11.5px;
+        line-height: 1.4;
+        color: var(--muted);
+      }
+
+      .switch {
+        -webkit-appearance: none;
+        appearance: none;
+        position: relative;
+        width: 36px;
+        height: 20px;
+        border-radius: 10px;
+        background: var(--bg-3);
+        outline: none;
+        cursor: pointer;
+        flex-shrink: 0;
+        transition: background 0.15s ease;
+      }
+
+      .switch::after {
+        content: "";
+        position: absolute;
+        top: 3px;
+        left: 3px;
+        width: 14px;
+        height: 14px;
+        border-radius: 50%;
+        background: #fff;
+        transition: transform 0.15s ease;
+      }
+
+      .switch:checked {
+        background: var(--accent);
+      }
+
+      .switch:checked::after {
+        transform: translateX(16px);
+      }
+
+      .switch:focus-visible,
+      .icon-btn:focus-visible,
+      .btn:focus-visible {
+        box-shadow: 0 0 0 2px var(--accent-soft), 0 0 0 1px var(--accent);
+      }
+
+      .icon-picker {
         display: flex;
-        flex-direction: row;
-        gap: 8px;
-        overflow-x: auto;
-        overflow-y: hidden;
-        max-height: 80px;
-        padding: 4px 0;
+        align-items: center;
+        gap: 12px;
       }
 
-      .credentials-item {
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-        padding: 10px;
-        background: var(--bg-tertiary);
-        border: 1px solid var(--border-color);
-        border-radius: 8px;
-        min-width: 140px;
+      .icon-preview {
+        width: 48px;
+        height: 48px;
+        border-radius: 12px;
+        background: linear-gradient(135deg, var(--accent), #2563eb) center / cover no-repeat;
         flex-shrink: 0;
       }
 
-      .credentials-item-info {
-        display: flex;
-        flex-direction: column;
+      .icon-preview.custom {
+        background-color: transparent;
+      }
+
+      .icon-picker .btn {
+        flex: none;
+      }
+
+      .icon-preview.rank {
+        border-radius: 12px;
+        background-color: var(--bg-2);
+        background-size: 28px;
+        image-rendering: pixelated;
+      }
+
+      .hint.error {
+        color: var(--danger);
+      }
+
+      .rank-grid {
+        display: grid;
+        grid-template-columns: repeat(8, 1fr);
         gap: 4px;
-        overflow: hidden;
+        margin-top: 10px;
       }
 
-      .credentials-item-username {
-        font-weight: 600;
-        font-size: 13px;
-        color: var(--text-primary);
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
+      .rank-opt {
+        height: 36px;
+        border: 1px solid transparent;
+        border-radius: 8px;
+        background: var(--bg-2) center / 22px no-repeat;
       }
 
-      .credentials-item-site {
-        font-size: 11px;
-        color: var(--text-secondary);
+      .rank-opt:hover {
+        border-color: var(--bg-3);
       }
 
-      .credentials-item-actions {
-        display: flex;
-        gap: 4px;
-      }
-
-      .credentials-item-actions .credentials-btn {
-        flex: 1;
-        padding: 4px 6px;
-        font-size: 10px;
-      }
-
-      .credentials-btn {
-        padding: 6px 8px;
-        border: 1px solid var(--border-color);
-        background: var(--bg-secondary);
-        color: var(--text-primary);
-        border-radius: 4px;
-        cursor: pointer;
-        font-size: 11px;
-        transition: all 0.2s ease;
-      }
-
-      .credentials-btn:hover {
+      .rank-opt.selected {
         border-color: var(--accent);
-        color: var(--accent);
+        background-color: var(--accent-soft);
       }
 
-      .credentials-empty {
-        text-align: center;
-        color: var(--text-secondary);
-        padding: 24px 0;
-        font-size: 13px;
+      .btn {
+        flex: 1;
+        height: 34px;
+        padding: 0 14px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        outline: none;
+        background: var(--bg-2);
+        color: var(--text);
+        font-size: 12.5px;
+        font-weight: 600;
+        transition: background 0.12s ease, border-color 0.12s ease;
       }
 
-      .credentials-edit-form {
+      .btn:hover {
+        border-color: var(--bg-3);
+        background: var(--bg-3);
+      }
+
+      .btn.primary {
+        border-color: var(--accent);
+        background: var(--accent);
+        color: var(--accent-ink);
+      }
+
+      .btn.primary:hover {
+        filter: brightness(1.08);
+      }
+
+      .btn.small {
+        flex: none;
+        height: 28px;
+        padding: 0 10px;
+        font-size: 11.5px;
+        font-weight: 500;
+      }
+
+      .btn.danger:hover {
+        border-color: var(--danger);
+        background: transparent;
+        color: var(--danger);
+      }
+
+      .btn:disabled {
+        opacity: 0.6;
+        pointer-events: none;
+      }
+
+      /* ---------- accounts ---------- */
+      .site-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        margin-top: 12px;
+        padding: 4px 10px;
+        border-radius: 12px;
+        background: var(--bg-2);
+        color: var(--muted);
+        font-size: 11.5px;
+      }
+
+      .account {
         display: flex;
-        flex-direction: column;
-        gap: 12px;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 8px 8px 12px;
+        margin-bottom: 6px;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        background: var(--bg-2);
       }
 
-      .credentials-edit-form input {
-        padding: 8px 12px;
-        background: var(--bg-tertiary);
-        border: 1px solid var(--border-color);
-        border-radius: 6px;
-        color: var(--text-primary);
-        font-size: 13px;
+      .account-avatar {
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        background: var(--accent-soft);
+        color: var(--accent);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 12px;
+        font-weight: 700;
+        text-transform: uppercase;
+        flex-shrink: 0;
       }
 
-      .credentials-edit-form input::placeholder {
-        color: var(--text-secondary);
+      .account-name {
+        flex: 1;
+        min-width: 0;
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+        font-size: 12.5px;
+        font-weight: 600;
       }
 
-      .credentials-edit-actions {
+      .empty {
+        padding: 28px 12px;
+        text-align: center;
+        line-height: 1.5;
+        color: var(--muted);
+        font-size: 12.5px;
+      }
+
+      .form-actions {
         display: flex;
         gap: 8px;
-      }
-
-      .credentials-edit-actions button {
-        flex: 1;
-        padding: 8px 12px;
-        border: 1px solid var(--border-color);
-        border-radius: 6px;
-        cursor: pointer;
-        font-weight: 500;
-        font-size: 12px;
-        transition: all 0.2s ease;
-      }
-
-      .credentials-edit-actions .btn-save {
-        background: var(--accent);
-        color: var(--bg-primary);
-        border-color: var(--accent);
-      }
-
-      .credentials-edit-actions .btn-save:hover {
-        background: var(--accent-hover);
-        border-color: var(--accent-hover);
-      }
-
-      .credentials-edit-actions .btn-cancel {
-        background: var(--bg-tertiary);
-        color: var(--text-primary);
-      }
-
-      .credentials-edit-actions .btn-cancel:hover {
-        border-color: var(--accent);
-        color: var(--accent);
-      }
-
-
-      .win-btn {
-        width: 32px;
-        height: 32px;
-        border-radius: 6px;
-        border: 1px solid var(--border-color);
-        background: var(--bg-tertiary);
-        color: var(--text-primary);
-        cursor: pointer;
-        font-weight: 600;
-        font-size: 12px;
-        transition: all 0.2s ease;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        -webkit-app-region: no-drag;
-      }
-
-      .win-btn:hover {
-        border-color: var(--accent);
-        background: var(--bg-secondary);
-        color: var(--accent);
-      }
-
-      .win-btn.close:hover {
-        background: var(--danger);
-        border-color: var(--danger);
-        color: white;
-      }
-
-      .footer {
-        height: 0;
-      }
-
-      /* Context Menu Styles */
-      .context-menu {
-        position: fixed;
-        background: var(--bg-secondary);
-        border: 1px solid var(--border-color);
-        border-radius: 6px;
-        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
-        z-index: 99997;
-        display: none;
-        flex-direction: column;
-        min-width: 220px;
-        overflow: hidden;
-      }
-
-      .context-menu.visible {
-        display: flex;
-      }
-
-      .context-menu-item {
-        padding: 10px 16px;
-        cursor: pointer;
-        color: var(--text-primary);
-        transition: all 0.15s ease;
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        font-size: 13px;
-        white-space: nowrap;
-        user-select: none;
-        border: none;
-        background: transparent;
-        width: 100%;
-        text-align: left;
-      }
-
-      .context-menu-item:hover {
-        background: var(--bg-tertiary);
-        color: var(--accent);
-      }
-
-      .context-menu-item.disabled {
-        opacity: 0.5;
-        cursor: not-allowed;
-        pointer-events: none;
-      }
-
-      .context-menu-item.disabled:hover {
-        background: transparent;
-        color: var(--text-primary);
-      }
-
-      .context-menu-separator {
-        height: 1px;
-        background: var(--border-color);
-        margin: 4px 0;
-      }
-
-      .context-menu-item-icon {
-        width: 16px;
-        text-align: center;
-        font-size: 12px;
-      }
-
-      .modal {
-        display: none;
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: rgba(0, 0, 0, 0.6);
-        z-index: 99998;
-        align-items: center;
-        justify-content: center;
-        pointer-events: none;
-      }
-
-      .modal.open {
-        display: flex;
-        pointer-events: auto;
-      }
-
-      .modal-content {
-        background: var(--bg-secondary);
-        border: 1px solid var(--border-color);
-        border-radius: 8px;
-        padding: 24px;
-        max-width: 500px;
-        width: 90%;
-        max-height: 80vh;
-        overflow-y: auto;
-        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
-        position: relative;
-        z-index: 2001;
-        pointer-events: auto;
-      }
-
-      .modal-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 20px;
-        padding-bottom: 12px;
-        border-bottom: 1px solid var(--border-color);
-      }
-
-      .modal-header h2 {
-        font-size: 18px;
-        font-weight: 700;
-        margin: 0;
-      }
-
-      .modal-close {
-        background: none;
-        border: none;
-        color: var(--text-secondary);
-        cursor: pointer;
-        font-size: 24px;
-        padding: 0;
-        width: 24px;
-        height: 24px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        transition: color 0.2s ease;
-      }
-
-      .modal-close:hover {
-        color: var(--text-primary);
-      }
-
-      .setting-group {
-        margin-bottom: 20px;
-      }
-
-      .setting-group label {
-        display: block;
-        font-weight: 600;
-        font-size: 14px;
-        margin-bottom: 8px;
-        color: var(--text-primary);
-      }
-
-      .setting-group input[type="text"],
-      .setting-group input[type="url"],
-      .setting-group select {
-        width: 100%;
-        padding: 8px 12px;
-        background: var(--bg-tertiary);
-        border: 1px solid var(--border-color);
-        border-radius: 6px;
-        color: var(--text-primary);
-        font-size: 13px;
-        font-family: inherit;
-      }
-
-      .setting-group input[type="text"]:focus,
-      .setting-group input[type="url"]:focus,
-      .setting-group select:focus {
-        outline: none;
-        border-color: var(--accent);
-        background: var(--bg-secondary);
-      }
-
-      .setting-group select {
-        cursor: pointer;
-      }
-
-      .checkbox-group {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-      }
-
-      .checkbox-group input[type="checkbox"] {
-        width: 18px;
-        height: 18px;
-        cursor: pointer;
-        accent-color: var(--accent);
-      }
-
-      .checkbox-group label {
-        margin: 0;
-        cursor: pointer;
-        font-weight: 500;
-      }
-
-      .modal-actions {
-        display: flex;
-        gap: 10px;
-        margin-top: 24px;
-        padding-top: 12px;
-        border-top: 1px solid var(--border-color);
-      }
-
-      .modal-actions button {
-        flex: 1;
-        padding: 8px 16px;
-        border: 1px solid var(--border-color);
-        border-radius: 6px;
-        cursor: pointer;
-        font-weight: 600;
-        font-size: 13px;
-        transition: all 0.2s ease;
-      }
-
-      .modal-actions .btn-save {
-        background: var(--accent);
-        color: var(--bg-primary);
-        border-color: var(--accent);
-      }
-
-      .modal-actions .btn-save:hover {
-        background: var(--accent-hover);
-        border-color: var(--accent-hover);
-      }
-
-      .modal-actions .btn-cancel {
-        background: var(--bg-tertiary);
-        color: var(--text-primary);
-      }
-
-      .modal-actions .btn-cancel:hover {
-        background: var(--bg-tertiary);
-        border-color: var(--accent);
-        color: var(--accent);
+        margin-top: 4px;
       }
     </style>
   </head>
   <body>
     <header id="chrome-shell">
-      <div class="top-row">
-        <div class="logo">
-          <div class="logo-mark"></div>
-          <div class="logo-text">
-            <strong>DarkOrbit</strong>
-            <span>Client</span>
-          </div>
+      <div class="tab-row">
+        <div class="brand">
+          <div class="brand-mark" id="brand-mark"></div>
+          <span class="brand-name" id="brand-name">DarkOrbit Client</span>
         </div>
-        <div class="toolbar">
-          <div class="controls">
-            <button class="btn icon" id="back" title="Back (Alt+Left)">↶</button>
-            <button class="btn icon" id="forward" title="Forward (Alt+Right)">↷</button>
-            <button class="btn icon" id="reload" title="Reload (Ctrl+R)">⟳</button>
-          </div>
-          <div class="address-bar">
-            <input
-              id="address"
-              type="text"
-              spellcheck="false"
-              placeholder="Adres veya URL..."
-            />
-            <div class="status-dot" id="status"></div>
-          </div>
-          <button class="btn" id="clear-cookies" title="Clear cookies">Cookies</button>
-          <button class="btn icon" id="home" title="Home">🏠</button>
-          <button class="btn icon" id="credentials-manager" title="Manage credentials">🔐</button>
-          <button class="btn icon" id="settings" title="Settings">⚙️</button>
-          <div class="find-bar" id="find-bar">
-            <input id="find-input" type="text" placeholder="Find in page..." />
-            <button class="find-btn" id="find-prev" title="Previous">↑</button>
-            <button class="find-btn" id="find-next" title="Next">↓</button>
-            <button class="find-btn" id="find-close" title="Close">✕</button>
-          </div>
-        </div>
-        <div class="window-controls">
-          <button class="win-btn minimize" id="win-min" title="Minimize">−</button>
-          <button class="win-btn max" id="win-max" title="Maximize">□</button>
-          <button class="win-btn close" id="win-close" title="Close">✕</button>
-        </div>
-      </div>
-      <div class="tab-container">
         <div class="tabs" id="tab-strip"></div>
-        <button class="add-tab" id="add-tab" title="New tab (Ctrl+T)">+</button>
+        <button class="icon-btn sm" id="add-tab" title="New tab (Ctrl+T)" data-icon="plus"></button>
+        <div class="drag-spacer"></div>
+        <button class="mem-pill" id="flash-mem" title="Flash memory usage" hidden>Flash 0 MB</button>
+        <button class="icon-btn sm" id="compact-toggle" title="Hide toolbar" data-icon="chevronUp"></button>
+        <div class="window-controls">
+          <button class="win-btn" id="win-min" title="Minimize" data-icon="minimize"></button>
+          <button class="win-btn" id="win-max" title="Maximize" data-icon="maximize"></button>
+          <button class="win-btn close" id="win-close" title="Close" data-icon="close"></button>
+        </div>
       </div>
+
+      <div class="toolbar">
+        <button class="icon-btn" id="back" title="Back" data-icon="back"></button>
+        <button class="icon-btn" id="forward" title="Forward" data-icon="forward"></button>
+        <button class="icon-btn" id="reload" title="Reload (Ctrl+R)" data-icon="reload"></button>
+        <button class="icon-btn" id="home" title="Home" data-icon="home"></button>
+        <div class="address-bar">
+          <span data-icon="globe"></span>
+          <input id="address" type="text" spellcheck="false" placeholder="Enter address" />
+        </div>
+        <button class="text-btn" id="credentials-manager" title="Saved accounts for this site">
+          <span data-icon="user"></span>Accounts
+        </button>
+        <button class="icon-btn" id="settings" title="Settings" data-icon="sliders"></button>
+        <button class="icon-btn" id="more" title="More" data-icon="more"></button>
+
+        <div class="find-bar" id="find-bar">
+          <input id="find-input" type="text" placeholder="Find in page" />
+          <button class="find-btn" id="find-prev" title="Previous (Shift+Enter)" data-icon="chevronUp"></button>
+          <button class="find-btn" id="find-next" title="Next (Enter)" data-icon="chevronDown"></button>
+          <button class="find-btn" id="find-close" title="Close (Esc)" data-icon="close"></button>
+        </div>
+      </div>
+      <div class="load-bar" id="status"></div>
     </header>
-    <div class="footer"></div>
 
-    <!-- Context Menu -->
-    <div class="context-menu" id="context-menu"></div>
-
-    <!-- Credentials Manager Modal -->
-    <div class="credentials-modal" id="credentials-modal">
-      <div class="credentials-modal-content">
-        <div class="credentials-modal-header">
-          <h3>Saved Accounts</h3>
-          <button class="credentials-modal-close" id="credentials-modal-close">✕</button>
-        </div>
-        <div id="credentials-view-list" style="display: none;">
-          <div class="credentials-list" id="credentials-list"></div>
-          <div class="credentials-empty" id="credentials-empty">No saved accounts.</div>
-        </div>
-        <div id="credentials-edit-form" style="display: none;">
-          <div class="credentials-edit-form">
-            <input type="text" id="credentials-edit-username" placeholder="Username" />
-            <input type="password" id="credentials-edit-password" placeholder="Password" />
-          </div>
-          <div class="credentials-edit-actions">
-            <button class="btn-cancel" id="credentials-edit-cancel">Cancel</button>
-            <button class="btn-save" id="credentials-edit-save">Save</button>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Settings Modal -->
-    <div class="modal" id="settings-modal">
-      <div class="modal-content">
-        <div class="modal-header">
+    <main class="stage">
+      <!-- Settings panel -->
+      <aside class="panel" id="settings-modal">
+        <div class="panel-head">
           <h2>Settings</h2>
-          <button class="modal-close" id="settings-close">✕</button>
+          <button class="icon-btn sm" id="settings-close" title="Close (Esc)" data-icon="close"></button>
         </div>
+        <div class="panel-body">
+          <div class="section-title">Profile</div>
+          <div class="field">
+            <label for="client-name">Client name</label>
+            <input class="input" type="text" id="client-name" placeholder="DarkOrbit Client" />
+          </div>
+          <div class="field">
+            <label>Client icon</label>
+            <div class="icon-picker">
+              <div class="icon-preview" id="icon-preview"></div>
+              <button class="btn small" id="icon-upload">Upload image</button>
+              <button class="btn small danger" id="icon-remove" hidden>Remove</button>
+              <input type="file" id="icon-file" accept="image/png,image/jpeg,image/webp,image/gif" hidden />
+            </div>
+            <span class="hint">PNG, JPG, WebP or GIF, up to 5 MB and 4096 × 4096 pixels. It is cropped to a square and shrunk to fit.</span>
+            <span class="hint error" id="icon-error" hidden></span>
+            <div class="rank-grid" id="rank-grid"></div>
+            <span class="hint">Or pick one of the rank icons.</span>
+          </div>
 
-        <div class="setting-group">
-          <label for="client-name">Client Name</label>
-          <input
-            type="text"
-            id="client-name"
-            placeholder="Your Name"
-          />
-        </div>
-
-        <div class="setting-group">
-          <label for="rank-select">Rank Icon</label>
-          <div style="display: flex; gap: 12px; align-items: flex-start;">
-            <select id="rank-select" style="flex: 1;">
-              <option value="none">No custom icon</option>
+          <div class="section-title">General</div>
+          <div class="field">
+            <label for="homepage">Homepage</label>
+            <input class="input" type="text" id="homepage" placeholder="https://darkorbit.com/" />
+          </div>
+          <div class="field">
+            <label for="theme-select">Theme</label>
+            <select class="input" id="theme-select">
+              <option value="dark">Dark</option>
+              <option value="light">Light</option>
             </select>
-            <div id="rank-preview" style="width: 48px; height: 48px; border-radius: 8px; background: linear-gradient(135deg, var(--accent), #00a8cc); flex-shrink: 0; box-shadow: 0 4px 12px rgba(0, 212, 255, 0.25); background-size: cover; background-position: center;"></div>
+          </div>
+          <div class="row">
+            <div class="row-text">
+              <strong>Remember logins</strong>
+              <span>Save the username and password when you log in. Stored on this computer only.</span>
+            </div>
+            <input class="switch" type="checkbox" id="save-login" />
+          </div>
+
+          <div class="section-title">Performance</div>
+          <div class="row">
+            <div class="row-text">
+              <strong>GPU acceleration</strong>
+              <span>Turn off only if the game shows a black screen or graphic glitches.</span>
+            </div>
+            <input class="switch" type="checkbox" id="gpu-acceleration" checked />
+          </div>
+          <div class="row">
+            <div class="row-text">
+              <strong>Flash performance boost</strong>
+              <span>Forces GPU rendering, keeps full speed in the background and raises Flash priority.</span>
+            </div>
+            <input class="switch" type="checkbox" id="performance-mode" checked />
+          </div>
+          <div class="row">
+            <div class="row-text">
+              <strong>Render at 100% scale</strong>
+              <span>More FPS on displays scaled to 125% or 150%. Everything looks slightly smaller.</span>
+            </div>
+            <input class="switch" type="checkbox" id="low-dpi-render" />
+          </div>
+          <span class="hint">Changing these three restarts the client.</span>
+          <div class="row" style="margin-top: 8px;">
+            <div class="row-text">
+              <strong>Force direct GPU mode</strong>
+              <span>Makes game pages start Flash with wmode "direct" so it renders on the graphics card. Applies on the next page load.</span>
+            </div>
+            <input class="switch" type="checkbox" id="flash-force-direct" checked />
+          </div>
+          <div class="field" style="margin-top: 10px;">
+            <label for="flash-quality">Flash render quality</label>
+            <select class="input" id="flash-quality">
+              <option value="default">Game default</option>
+              <option value="high">High</option>
+              <option value="medium">Medium</option>
+              <option value="low">Low (fastest)</option>
+            </select>
+            <span class="hint">Lower quality means less work per frame on weak computers. Applies on the next page load; a game may still override it from its own settings.</span>
+          </div>
+
+          <div class="section-title">Flash memory</div>
+          <div class="field">
+            <label for="flash-memory-limit">Memory limit (MB)</label>
+            <input class="input" type="text" inputmode="numeric" id="flash-memory-limit" placeholder="1000" />
+          </div>
+          <div class="row">
+            <div class="row-text">
+              <strong>Free memory automatically</strong>
+              <span>When the computer is running low on RAM and Flash is above the limit, hands Flash's unused memory back to Windows. The game keeps running. Does nothing on a computer with plenty of free memory.</span>
+            </div>
+            <input class="switch" type="checkbox" id="flash-auto-trim" checked />
+          </div>
+          <div class="row">
+            <div class="row-text">
+              <strong>Restart Flash automatically</strong>
+              <span>The only real cure when the game itself gets slower as Flash's memory grows. Reloads the game once Flash is above the limit, but only after mouse and keyboard have been idle for 2 minutes, never while you play.</span>
+            </div>
+            <input class="switch" type="checkbox" id="flash-auto-restart" />
+          </div>
+
+          <div class="section-title">Advanced</div>
+          <div class="row">
+            <div class="row-text">
+              <strong>Custom user agent</strong>
+              <span>Used for every site except darkorbit.com, which always gets the game client's own.</span>
+            </div>
+            <input class="switch" type="checkbox" id="use-custom-ua" />
+          </div>
+          <div class="field">
+            <input class="input" type="text" id="custom-ua" placeholder="User agent string" />
           </div>
         </div>
-
-        <div class="setting-group">
-          <label for="homepage">Homepage</label>
-          <input
-            type="url"
-            id="homepage"
-            placeholder="https://example.com"
-          />
+        <div class="panel-foot">
+          <button class="btn" id="settings-cancel">Cancel</button>
+          <button class="btn primary" id="settings-save">Save</button>
         </div>
+      </aside>
 
-        <div class="setting-group">
-          <label for="theme-select">Theme</label>
-          <select id="theme-select" style="width: 100%;">
-            <option value="dark">Dark</option>
-            <option value="light">Light</option>
-          </select>
+      <!-- Accounts panel -->
+      <aside class="panel" id="accounts-panel">
+        <div class="panel-head">
+          <h2>Accounts</h2>
+          <button class="icon-btn sm" id="accounts-close" title="Close (Esc)" data-icon="close"></button>
         </div>
-
-        <div class="setting-group">
-          <label for="use-custom-ua">Custom User Agent</label>
-          <div style="display:flex;gap:8px;align-items:center;">
-            <input type="checkbox" id="use-custom-ua" />
-            <input type="text" id="custom-ua" class="full-input" placeholder="Enter custom User Agent string" style="flex:1;" />
+        <div class="panel-body">
+          <div class="site-chip" id="accounts-site" hidden></div>
+          <div class="section-title">Saved accounts</div>
+          <div id="accounts-list"></div>
+          <div class="section-title" id="account-form-title">Add account</div>
+          <div class="field">
+            <input class="input" type="text" id="account-username" placeholder="Username" spellcheck="false" />
           </div>
-          <small style="color:var(--text-secondary);">If enabled, this User Agent will be used for all tabs (except when DarkOrbit detection forces a specialized UA).</small>
-        </div>
-
-        <div class="setting-group">
-          <label>Performance Mode</label>
-          <div class="checkbox-group">
-            <input
-              type="checkbox"
-              id="gpu-acceleration"
-              checked
-            />
-            <label for="gpu-acceleration">GPU Acceleration (Hardware Acceleration)</label>
+          <div class="field">
+            <input class="input" type="password" id="account-password" placeholder="Password" />
           </div>
-        </div>
-
-        <div class="setting-group">
-          <label>Login</label>
-          <div class="checkbox-group">
-            <input type="checkbox" id="save-login" />
-            <label for="save-login">Save login credentials</label>
+          <div class="form-actions">
+            <button class="btn" id="account-cancel" hidden>Cancel</button>
+            <button class="btn primary" id="account-save">Add account</button>
           </div>
-          <small style="color:var(--text-secondary);">Saved credentials are stored locally. You'll see saved accounts on login pages.</small>
+          <span class="hint" style="margin-top: 14px;">Open the login page, then press Log in on an account to fill and submit the form.</span>
         </div>
-
-        <div class="modal-actions">
-          <button class="btn-cancel" id="settings-cancel">Cancel</button>
-          <button class="btn-save" id="settings-save">Save</button>
-        </div>
-      </div>
-    </div>
-
-    <div class="footer"></div>
+      </aside>
+    </main>
 
     <script>
       const { ipcRenderer } = require("electron");
-      const tabStrip = document.getElementById("tab-strip");
-      const addTabButton = document.getElementById("add-tab");
-      const backBtn = document.getElementById("back");
-      const forwardBtn = document.getElementById("forward");
-      const reloadBtn = document.getElementById("reload");
-      const address = document.getElementById("address");
-      const statusDot = document.getElementById("status");
-      const chromeShell = document.getElementById("chrome-shell");
-      const winClose = document.getElementById("win-close");
-      const winMax = document.getElementById("win-max");
-      const winMin = document.getElementById("win-min");
-      const clearCookies = document.getElementById("clear-cookies");
-      const homeBtn = document.getElementById("home");
-      const credentialsManagerBtn = document.getElementById("credentials-manager");
-      const settingsBtn = document.getElementById("settings");
-      const settingsModal = document.getElementById("settings-modal");
-      const settingsClose = document.getElementById("settings-close");
-      const settingsCancel = document.getElementById("settings-cancel");
-      const settingsSave = document.getElementById("settings-save");
-      const homepageInput = document.getElementById("homepage");
-      const themeSelect = document.getElementById("theme-select");
-      const useCustomUA = document.getElementById("use-custom-ua");
-      const customUAInput = document.getElementById("custom-ua");
-      const gpuAcceleration = document.getElementById("gpu-acceleration");
-      const saveLogin = document.getElementById("save-login");
-      const clientNameInput = document.getElementById("client-name");
-      const rankSelect = document.getElementById("rank-select");
-      const rankPreview = document.getElementById("rank-preview");
-      const findBar = document.getElementById("find-bar");
-      const findInput = document.getElementById("find-input");
-      const findPrev = document.getElementById("find-prev");
-      const findNext = document.getElementById("find-next");
-      const findClose = document.getElementById("find-close");
-      const contextMenu = document.getElementById("context-menu");
-      const credentialsModal = document.getElementById("credentials-modal");
-      const credentialsModalClose = document.getElementById("credentials-modal-close");
-      const credentialsViewList = document.getElementById("credentials-view-list");
-      const credentialsList = document.getElementById("credentials-list");
-      const credentialsEmpty = document.getElementById("credentials-empty");
-      const credentialsEditForm = document.getElementById("credentials-edit-form");
-      const credentialsEditUsername = document.getElementById("credentials-edit-username");
-      const credentialsEditPassword = document.getElementById("credentials-edit-password");
-      const credentialsEditCancel = document.getElementById("credentials-edit-cancel");
-      const credentialsEditSave = document.getElementById("credentials-edit-save");
 
-      const state = {
-        tabs: [],
-        activeId: null,
+      // ---------- icons ----------
+      const ICONS = {
+        back: '<path d="M19 12H5"/><path d="m12 19-7-7 7-7"/>',
+        forward: '<path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>',
+        reload: '<path d="M21 12a9 9 0 1 1-2.64-6.36L21 8"/><path d="M21 3v5h-5"/>',
+        home: '<path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>',
+        globe: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a14 14 0 0 1 0 18"/><path d="M12 3a14 14 0 0 0 0 18"/>',
+        user: '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
+        sliders: '<path d="M4 6h10"/><path d="M18 6h2"/><path d="M4 12h4"/><path d="M12 12h8"/><path d="M4 18h12"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/>',
+        more: '<circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/>',
+        plus: '<path d="M12 5v14"/><path d="M5 12h14"/>',
+        close: '<path d="m6 6 12 12"/><path d="M18 6 6 18"/>',
+        chevronUp: '<path d="m6 15 6-6 6 6"/>',
+        chevronDown: '<path d="m6 9 6 6 6-6"/>',
+        minimize: '<path d="M5 12h14"/>',
+        maximize: '<rect x="5" y="5" width="14" height="14" rx="1"/>',
+      };
+      const iconSvg = (name) => `<svg class="ic" viewBox="0 0 24 24">${ICONS[name] || ""}</svg>`;
+      const setIcon = (el, name) => {
+        el.dataset.icon = name;
+        el.innerHTML = iconSvg(name);
+      };
+      document.querySelectorAll("[data-icon]").forEach((el) => setIcon(el, el.dataset.icon));
+
+      // ---------- elements ----------
+      const $ = (id) => document.getElementById(id);
+      const tabStrip = $("tab-strip");
+      const addTabButton = $("add-tab");
+      const backBtn = $("back");
+      const forwardBtn = $("forward");
+      const reloadBtn = $("reload");
+      const homeBtn = $("home");
+      const address = $("address");
+      const loadBar = $("status");
+      const chromeShell = $("chrome-shell");
+      const flashMemBtn = $("flash-mem");
+      const compactToggle = $("compact-toggle");
+      const accountsBtn = $("credentials-manager");
+      const settingsBtn = $("settings");
+      const moreBtn = $("more");
+      const brandMark = $("brand-mark");
+      const brandName = $("brand-name");
+
+      const settingsPanel = $("settings-modal");
+      const settingsSave = $("settings-save");
+      const homepageInput = $("homepage");
+      const themeSelect = $("theme-select");
+      const useCustomUA = $("use-custom-ua");
+      const customUAInput = $("custom-ua");
+      const gpuAcceleration = $("gpu-acceleration");
+      const performanceMode = $("performance-mode");
+      const lowDpiRender = $("low-dpi-render");
+      const flashMemoryLimit = $("flash-memory-limit");
+      const flashAutoRestart = $("flash-auto-restart");
+      const flashAutoTrim = $("flash-auto-trim");
+      const flashForceDirect = $("flash-force-direct");
+      const flashQuality = $("flash-quality");
+      const saveLogin = $("save-login");
+      const clientNameInput = $("client-name");
+      const iconPreview = $("icon-preview");
+      const iconUpload = $("icon-upload");
+      const iconRemove = $("icon-remove");
+      const iconFile = $("icon-file");
+      const iconError = $("icon-error");
+      const rankGrid = $("rank-grid");
+
+      const accountsPanel = $("accounts-panel");
+      const accountsSite = $("accounts-site");
+      const accountsList = $("accounts-list");
+      const accountFormTitle = $("account-form-title");
+      const accountUsername = $("account-username");
+      const accountPassword = $("account-password");
+      const accountSave = $("account-save");
+      const accountCancel = $("account-cancel");
+
+      const findBar = $("find-bar");
+      const findInput = $("find-input");
+
+      const PANEL_WIDTH = 380;
+      const DEFAULT_NAME = "DarkOrbit Client";
+      const DEFAULT_SETTINGS = {
+        homepage: "http://darkorbit.com/",
+        gpuAcceleration: true,
+        clientName: "Your Name",
+        rankIcon: "none",
+        clientIcon: "",
+        useCustomUA: false,
+        customUserAgent: "",
+        theme: "dark",
+        saveLogin: false,
+        performanceMode: true,
+        lowDpiRender: false,
+        flashForceDirect: true,
+        flashQuality: "default",
+        flashMemoryLimitMB: 1000,
+        flashAutoTrim: true,
+        flashAutoRestart: false,
       };
 
-      // Debug: Tüm elementleri kontrol et
-      console.log("=== DOM Elements Check ===");
-      console.log("settingsModal:", settingsModal);
-      console.log("settingsBtn:", settingsBtn);
-      console.log("homeBtn:", homeBtn);
-      console.log("===========================");
+      const state = { tabs: [], activeId: null };
+      const activeTab = () => state.tabs.find((t) => t.id === state.activeId);
 
-      // Load settings from localStorage
+      // ---------- settings storage ----------
       const loadSettings = () => {
-        const saved = localStorage.getItem("do-settings");
-        return saved
-          ? JSON.parse(saved)
-          : {
-              homepage: "http://darkorbit.com/",
-              gpuAcceleration: true,
-              clientName: "Your Name",
-              rankIcon: "none",
-              useCustomUA: false,
-              customUserAgent: "",
-              theme: "dark",
-              saveLogin: false,
-              autoLogin: false,
-            };
+        let saved = null;
+        try {
+          saved = JSON.parse(localStorage.getItem("do-settings"));
+        } catch (_err) {}
+        return Object.assign({}, DEFAULT_SETTINGS, saved || {});
       };
 
-      // Save settings to localStorage and notify main process
       const saveSettings = (settings) => {
         localStorage.setItem("do-settings", JSON.stringify(settings));
-        // Main process'e gönder - dosyaya yazacak
         ipcRenderer.send("settings:save-file", settings);
-      };
-
-      // Logo'yu güncelle
-      const updateLogo = () => {
-        const settings = loadSettings();
-        const logoText = document.querySelector(".logo-text strong");
-        const logoMark = document.querySelector(".logo-mark");
-        
-        if (logoText) {
-          logoText.textContent = settings.clientName || "Your Name";
-        }
-        
-        if (logoMark) {
-          if (settings.rankIcon && settings.rankIcon !== "none") {
-            // Rank image'ı yükle (tam görünüm için contain)
-            logoMark.style.backgroundImage = `url('./ranks/rank_${settings.rankIcon}.png')`;
-            logoMark.style.backgroundSize = "contain";
-            logoMark.style.backgroundPosition = "center";
-            logoMark.style.backgroundRepeat = "no-repeat";
-          } else {
-            // Default gradient
-            logoMark.style.backgroundImage = "none";
-            logoMark.style.background = "linear-gradient(135deg, var(--accent), #00a8cc)";
-            logoMark.style.backgroundSize = "cover";
-            logoMark.style.backgroundPosition = "center";
-            logoMark.style.backgroundRepeat = "no-repeat";
-          }
-        }
       };
 
       const applyTheme = (theme) => {
         document.body.classList.toggle("theme-light", theme === "light");
       };
 
-      // Open settings modal
-      const openSettingsModal = () => {
-        console.log("Opening settings modal...");
-        console.log("Modal element:", settingsModal);
+      // Only images this client produced itself are ever put into a style rule.
+      const isIconData = (value) =>
+        typeof value === "string" && /^data:image\/png;base64,[A-Za-z0-9+/=]+$/.test(value);
+
+      const isRank = (value) => /^\d+$/.test(String(value || ""));
+
+      const updateLogo = () => {
         const settings = loadSettings();
-        homepageInput.value = settings.homepage;
-        themeSelect.value = settings.theme || "dark";
-        useCustomUA.checked = !!settings.useCustomUA;
-        customUAInput.value = settings.customUserAgent || "";
-        gpuAcceleration.checked = settings.gpuAcceleration;
-        saveLogin.checked = !!settings.saveLogin;
-        clientNameInput.value = settings.clientName || "Your Name";
-        rankSelect.value = settings.rankIcon || "none";
-        updateRankPreview();
-        settingsModal.classList.add("open");
-        console.log("Modal class:", settingsModal.className);
-        ipcRenderer.send("modal:open");
+        const name = (settings.clientName || "").trim();
+        brandName.textContent = !name || name === "Your Name" ? DEFAULT_NAME : name;
+        const icon = isIconData(settings.clientIcon) ? settings.clientIcon : "";
+        const rank = !icon && isRank(settings.rankIcon) ? settings.rankIcon : "";
+        brandMark.classList.toggle("custom", !!icon);
+        brandMark.classList.toggle("rank", !!rank);
+        brandMark.style.backgroundImage = icon
+          ? `url("${icon}")`
+          : rank
+          ? `url('./ranks/rank_${rank}.png')`
+          : "";
       };
 
-      // Close settings modal
-      const closeSettingsModal = () => {
-        console.log("Closing settings modal...");
-        settingsModal.classList.remove("open");
-        ipcRenderer.send("modal:close");
-      };
-
-      // Update custom DNS visibility
-      const updateCustomDnsVisibility = () => {
-        // DNS removed (feature placeholder)
-      };
-
-      // Save settings
-      const handleSaveSettings = () => {
-        const newSettings = {
-          homepage: homepageInput.value || "http://darkorbit.com/",
-          theme: themeSelect.value || "dark",
-          useCustomUA: !!useCustomUA.checked,
-          customUserAgent: customUAInput.value || "",
-          gpuAcceleration: gpuAcceleration.checked,
-          saveLogin: !!saveLogin.checked,
-          clientName: clientNameInput.value || "Your Name",
-          rankIcon: rankSelect.value || "none",
-        };
-        
-        // Read old settings
-        const oldSettings = loadSettings();
-        
-        // Restart required if GPU setting changed
-        const needsRestart = 
-          newSettings.gpuAcceleration !== oldSettings.gpuAcceleration;
-        
-        // Save settings
-        saveSettings(newSettings);
-        ipcRenderer.send("settings:update", newSettings);
-        
-        // Update logo immediately
-        updateLogo();
-        applyTheme(newSettings.theme || "dark");
-        
-        if (needsRestart) {
-          // Restarting message
-          const originalText = settingsSave.textContent;
-          settingsSave.textContent = "↻ Restarting...";
-          settingsSave.disabled = true;
-          
-          setTimeout(() => {
-            ipcRenderer.send("app:restart");
-          }, 1000);
-        } else {
-          // Başarı mesajı
-          const originalText = settingsSave.textContent;
-          settingsSave.textContent = "✓ Saved!";
-          settingsSave.style.backgroundColor = "var(--success)";
-          setTimeout(() => {
-            settingsSave.textContent = originalText;
-            settingsSave.style.backgroundColor = "";
-            closeSettingsModal();
-          }, 1500);
-        }
-      };
-
+      // ---------- layout ----------
       const notifyHeight = () => {
-        if (!chromeShell) return;
-        const rect = chromeShell.getBoundingClientRect();
-        ipcRenderer.send("ui:header-height", Math.ceil(rect.height));
+        const full = document.body.classList.contains("fullscreen");
+        const height = full ? 0 : Math.ceil(chromeShell.getBoundingClientRect().height);
+        ipcRenderer.send("ui:header-height", height);
+      };
+      new ResizeObserver(notifyHeight).observe(chromeShell);
+      window.addEventListener("load", notifyHeight);
+
+      const setCompact = (on) => {
+        document.body.classList.toggle("compact", on);
+        setIcon(compactToggle, on ? "chevronDown" : "chevronUp");
+        compactToggle.title = on ? "Show toolbar" : "Hide toolbar";
+        try {
+          localStorage.setItem("do-compact", on ? "1" : "0");
+        } catch (_err) {}
+        notifyHeight();
+      };
+      compactToggle.addEventListener("click", () =>
+        setCompact(!document.body.classList.contains("compact"))
+      );
+      setCompact(localStorage.getItem("do-compact") === "1");
+
+      // ---------- side panels ----------
+      const panels = { settings: settingsPanel, accounts: accountsPanel };
+      const panelButtons = { settings: settingsBtn, accounts: accountsBtn };
+      let openPanelName = null;
+
+      const setPanel = (name) => {
+        openPanelName = name;
+        Object.keys(panels).forEach((key) => {
+          panels[key].classList.toggle("open", key === name);
+          panelButtons[key].classList.toggle("on", key === name);
+        });
+        // The game view shrinks to make room, so the game keeps running next to the panel.
+        ipcRenderer.send("ui:side-panel", name ? PANEL_WIDTH : 0);
+      };
+      const closePanel = () => setPanel(null);
+
+      // ---------- native menus (drawn above the game view) ----------
+      const popupMenu = async (items) => {
+        const payload = items.map((item, index) => ({
+          id: index,
+          label: item.label,
+          role: item.role,
+          accelerator: item.accelerator,
+          separator: !!item.separator,
+          disabled: !!item.disabled,
+        }));
+        const picked = await ipcRenderer.invoke("ui:menu", payload);
+        const item = typeof picked === "number" ? items[picked] : null;
+        if (item && item.click) item.click();
       };
 
-      window.addEventListener("load", notifyHeight);
-      window.addEventListener("resize", notifyHeight);
+      const confirmDialog = (message, detail) =>
+        ipcRenderer.invoke("dialog:confirm", { message, detail });
 
-      // Sync authoritative settings from the main process on load
-      ipcRenderer.invoke("settings:get").then((s) => {
-        if (s) {
-          const defaults = {
-            homepage: "http://darkorbit.com/",
-            gpuAcceleration: true,
-            clientName: "Your Name",
-            rankIcon: "none",
-            useCustomUA: false,
-            customUserAgent: "",
-            theme: "dark",
-            saveLogin: false,
-          };
-          const merged = Object.assign(defaults, s || {});
-          localStorage.setItem("do-settings", JSON.stringify(merged));
-          try {
-            updateLogo();
-            applyTheme(merged.theme || "dark");
-            rankSelect.value = merged.rankIcon || "none";
-            updateRankPreview();
-          } catch (_err) {}
-        }
-      });
-
-      // Receive settings updates from main and sync localStorage/UI
-      ipcRenderer.on("settings:updated", (_e, newSettings) => {
-        try {
-          localStorage.setItem("do-settings", JSON.stringify(newSettings));
-          updateLogo();
-          applyTheme(newSettings.theme || "dark");
-          if (settingsModal && settingsModal.classList && settingsModal.classList.contains("open")) {
-            homepageInput.value = newSettings.homepage || "http://darkorbit.com/";
-            themeSelect.value = newSettings.theme || "dark";
-            useCustomUA.checked = !!newSettings.useCustomUA;
-            customUAInput.value = newSettings.customUserAgent || "";
-            gpuAcceleration.checked = newSettings.gpuAcceleration;
-            saveLogin.checked = !!newSettings.saveLogin;
-            clientNameInput.value = newSettings.clientName || "Your Name";
-            rankSelect.value = newSettings.rankIcon || "none";
-            updateRankPreview();
-          }
-        } catch (_err) {}
-      });
+      // ---------- tabs ----------
+      let draggedId = null;
 
       const renderTabs = () => {
         tabStrip.innerHTML = "";
@@ -1326,452 +1329,211 @@
           const el = document.createElement("div");
           el.className = "tab";
           el.draggable = true;
+          el.dataset.id = tab.id;
+          el.title = tab.title ? `${tab.title}\n${tab.url}` : tab.url;
           if (tab.id === state.activeId) el.classList.add("active");
           if (tab.isLoading) el.classList.add("loading");
-          el.dataset.id = tab.id;
-          el.title = tab.url;
 
-          const loader = document.createElement("span");
-          loader.className = "loader";
+          const dot = document.createElement("span");
+          dot.className = "dot";
 
-          const titleWrap = document.createElement("div");
-          titleWrap.className = "title";
-          const label = document.createElement("span");
-          label.textContent = tab.title || "New Tab";
-          titleWrap.appendChild(label);
+          const title = document.createElement("span");
+          title.className = "title";
+          title.textContent = tab.title || "New Tab";
 
           const closeBtn = document.createElement("button");
           closeBtn.className = "close-btn";
-          closeBtn.title = "Close";
-          closeBtn.textContent = "✕";
+          closeBtn.title = "Close tab (Ctrl+W)";
+          closeBtn.innerHTML = iconSvg("close");
 
-          el.appendChild(loader);
-          el.appendChild(titleWrap);
-          el.appendChild(closeBtn);
+          el.append(dot, title, closeBtn);
 
           el.addEventListener("click", () => ipcRenderer.invoke("tabs:activate", tab.id));
+          el.addEventListener("auxclick", (event) => {
+            if (event.button === 1) ipcRenderer.invoke("tabs:close", tab.id);
+          });
           closeBtn.addEventListener("click", (event) => {
             event.stopPropagation();
             ipcRenderer.invoke("tabs:close", tab.id);
           });
 
-          // Drag and drop events
-          el.addEventListener("dragstart", handleTabDragStart);
-          el.addEventListener("dragover", handleTabDragOver);
-          el.addEventListener("drop", handleTabDrop);
-          el.addEventListener("dragend", handleTabDragEnd);
-          el.addEventListener("dragleave", handleTabDragLeave);
+          el.addEventListener("dragstart", (event) => {
+            draggedId = tab.id;
+            el.classList.add("dragging");
+            event.dataTransfer.effectAllowed = "move";
+          });
+          el.addEventListener("dragover", (event) => {
+            event.preventDefault();
+            if (draggedId && draggedId !== tab.id) el.classList.add("drop-target");
+          });
+          el.addEventListener("dragleave", () => el.classList.remove("drop-target"));
+          el.addEventListener("drop", (event) => {
+            event.preventDefault();
+            el.classList.remove("drop-target");
+            if (draggedId && draggedId !== tab.id) {
+              ipcRenderer.send("tabs:reorder", { draggedId, targetId: tab.id });
+            }
+          });
+          el.addEventListener("dragend", () => {
+            draggedId = null;
+            el.classList.remove("dragging");
+          });
 
           tabStrip.appendChild(el);
         });
 
-        const active = state.tabs.find((t) => t.id === state.activeId);
-        if (active) {
+        const active = activeTab();
+        if (active && document.activeElement !== address) {
           address.value = active.url;
         }
-        statusDot.classList.toggle("loading", active && active.isLoading);
+        backBtn.disabled = !active || !active.canGoBack;
+        forwardBtn.disabled = !active || !active.canGoForward;
+        loadBar.classList.toggle("loading", !!(active && active.isLoading));
       };
 
-      // Tab drag and drop handlers
-      let draggedTab = null;
-
-      const handleTabDragStart = (e) => {
-        draggedTab = e.target.closest(".tab");
-        draggedTab.style.opacity = "0.5";
-        e.dataTransfer.effectAllowed = "move";
-      };
-
-      const handleTabDragOver = (e) => {
-        e.preventDefault();
-        e.dataTransfer.dropEffect = "move";
-        const tab = e.target.closest(".tab");
-        if (tab && tab !== draggedTab) {
-          tab.style.borderLeft = "3px solid var(--accent)";
-        }
-      };
-
-      const handleTabDragLeave = (e) => {
-        const tab = e.target.closest(".tab");
-        if (tab) {
-          tab.style.borderLeft = "";
-        }
-      };
-
-      const handleTabDrop = (e) => {
-        e.preventDefault();
-        const dropTarget = e.target.closest(".tab");
-        
-        if (dropTarget && draggedTab && dropTarget !== draggedTab) {
-          // Tab sırasını değiştir
-          const draggedId = draggedTab.dataset.id;
-          const targetId = dropTarget.dataset.id;
-          
-          const draggedIndex = state.tabs.findIndex((t) => t.id === draggedId);
-          const targetIndex = state.tabs.findIndex((t) => t.id === targetId);
-          
-          // Array'de sıraları değiştir
-          const temp = state.tabs[draggedIndex];
-          state.tabs[draggedIndex] = state.tabs[targetIndex];
-          state.tabs[targetIndex] = temp;
-          
-          // IPC ile backend'e gönder
-          ipcRenderer.send("tabs:reorder", { draggedId, targetId });
-          
-          renderTabs();
-        }
-      };
-
-      const handleTabDragEnd = (e) => {
-        if (draggedTab) {
-          draggedTab.style.opacity = "1";
-          draggedTab.style.borderLeft = "";
-        }
-        draggedTab = null;
-      };
-
+      let lastActiveUrl = null;
       ipcRenderer.on("tabs:update", (_event, payload) => {
-        state.tabs = payload.tabs.map(tab => ({
+        state.tabs = payload.tabs.map((tab) => ({
           ...tab,
-          canGoBack: payload.canGoBack?.[tab.id] || false,
-          canGoForward: payload.canGoForward?.[tab.id] || false
+          canGoBack: !!(payload.canGoBack && payload.canGoBack[tab.id]),
+          canGoForward: !!(payload.canGoForward && payload.canGoForward[tab.id]),
         }));
         state.activeId = payload.activeId;
         renderTabs();
+        const active = activeTab();
+        const url = active ? active.url : null;
+        if (url !== lastActiveUrl) {
+          lastActiveUrl = url;
+          if (openPanelName === "accounts") renderAccounts();
+        }
       });
+
       ipcRenderer.on("window:fullscreen", (_event, payload) => {
-        const isFull = payload && payload.fullscreen;
-        document.body.classList.toggle("fullscreen", !!isFull);
-        if (isFull) {
-          ipcRenderer.send("ui:header-height", 0);
-        } else {
-          notifyHeight();
-        }
+        document.body.classList.toggle("fullscreen", !!(payload && payload.fullscreen));
+        notifyHeight();
       });
-
-      ipcRenderer.send("tabs:request-state");
-      notifyHeight();
-      updateLogo();
-      applyTheme((loadSettings().theme || "dark"));
-
-      // Rank preview güncelleme fonksiyonu
-      const updateRankPreview = () => {
-        const value = rankSelect.value;
-        if (value && value !== "none") {
-          // Remove gradient, then set image (use contain for full visibility)
-          rankPreview.style.background = "none";
-          rankPreview.style.backgroundImage = `url('./ranks/rank_${value}.png')`;
-          rankPreview.style.backgroundSize = "contain";
-          rankPreview.style.backgroundPosition = "center";
-          rankPreview.style.backgroundRepeat = "no-repeat";
-        } else {
-          rankPreview.style.backgroundImage = "none";
-          rankPreview.style.background = "linear-gradient(135deg, var(--accent), #00a8cc)";
-          rankPreview.style.backgroundSize = "cover";
-          rankPreview.style.backgroundPosition = "center";
-          rankPreview.style.backgroundRepeat = "no-repeat";
-        }
-      };
-
-      // Ranks dropdown'ını doldur
-      ipcRenderer.on("ranks:list", (_event, ranks) => {
-        rankSelect.innerHTML = '<option value="none">No custom icon</option>';
-        ranks.forEach((rank) => {
-          const option = document.createElement("option");
-          option.value = rank;
-          option.textContent = `Rank ${rank}`;
-          rankSelect.appendChild(option);
-        });
-        // Set the saved value
-        const settings = loadSettings();
-        rankSelect.value = settings.rankIcon || "none";
-        updateRankPreview();
-      });
-      
-      // Rank seçimi değişince preview'u güncelle
-      rankSelect.addEventListener("change", updateRankPreview);
-      
-      ipcRenderer.send("ranks:list");
-
-      console.log("İnitializing buttons...");
-      console.log("settingsBtn:", settingsBtn);
-      console.log("homeBtn:", homeBtn);
-
-      // Define loadAndRenderCredentials BEFORE event listeners
-      const loadAndRenderCredentials = async () => {
-        let origin = address.value.trim();
-        if (!origin) {
-          credentialsViewList.style.display = "none";
-          credentialsEditForm.style.display = "none";
-          credentialsEmpty.textContent = "Enter URL in address bar first.";
-          credentialsEmpty.style.display = "block";
-          return;
-        }
-
-        // Add http:// if no protocol specified
-        if (!origin.startsWith("http://") && !origin.startsWith("https://")) {
-          origin = "https://" + origin;
-        }
-
-        let siteOrigin;
-        try {
-          const url = new URL(origin);
-          siteOrigin = url.origin;
-        } catch (_err) {
-          credentialsViewList.style.display = "none";
-          credentialsEditForm.style.display = "none";
-          credentialsEmpty.textContent = "Invalid URL.";
-          credentialsEmpty.style.display = "block";
-          return;
-        }
-
-        const accounts = await ipcRenderer.invoke("credentials:list", siteOrigin);
-        credentialsViewList.style.display = "block";
-        credentialsEditForm.style.display = "none";
-        credentialsList.innerHTML = "";
-
-        if (!accounts || !accounts.length) {
-          credentialsEmpty.style.display = "block";
-          return;
-        }
-
-        credentialsEmpty.style.display = "none";
-        accounts.forEach((account) => {
-          const item = document.createElement("div");
-          item.className = "credentials-item";
-
-          const info = document.createElement("div");
-          info.className = "credentials-item-info";
-
-          const username = document.createElement("div");
-          username.className = "credentials-item-username";
-          username.textContent = account.username;
-
-          const site = document.createElement("div");
-          site.className = "credentials-item-site";
-          site.textContent = new URL(siteOrigin).hostname;
-
-          info.appendChild(username);
-          info.appendChild(site);
-
-          const actions = document.createElement("div");
-          actions.className = "credentials-item-actions";
-
-          const editBtn = document.createElement("button");
-          editBtn.className = "credentials-btn";
-          editBtn.textContent = "Edit";
-          editBtn.addEventListener("click", (e) => {
-            e.stopPropagation();
-            editingOrigin = siteOrigin;
-            editingUsername = account.username;
-            credentialsEditUsername.value = account.username;
-            credentialsEditPassword.value = account.password;
-            credentialsViewList.style.display = "none";
-            credentialsEditForm.style.display = "block";
-          });
-
-          const deleteBtn = document.createElement("button");
-          deleteBtn.className = "credentials-btn";
-          deleteBtn.textContent = "Delete";
-          deleteBtn.addEventListener("click", async (e) => {
-            e.stopPropagation();
-            const ok = await ipcRenderer.invoke("credentials:delete", siteOrigin, account.username);
-            if (ok) {
-              loadAndRenderCredentials();
-            }
-          });
-
-          actions.appendChild(editBtn);
-          actions.appendChild(deleteBtn);
-          item.appendChild(info);
-          item.appendChild(actions);
-          credentialsList.appendChild(item);
-        });
-      };
 
       addTabButton.addEventListener("click", () => ipcRenderer.invoke("tabs:create"));
-
-      homeBtn.addEventListener("click", () => {
-        const settings = loadSettings();
-        ipcRenderer.invoke("tabs:navigate", settings.homepage);
-      });
-
-      credentialsManagerBtn.addEventListener("click", async () => {
-        try {
-          let origin = address.value.trim();
-          if (!origin) {
-            alert("Please enter a URL in the address bar first.");
-            return;
-          }
-
-          // Add http:// if no protocol specified
-          if (!origin.startsWith("http://") && !origin.startsWith("https://")) {
-            origin = "https://" + origin;
-          }
-
-          let siteOrigin;
-          try {
-            const url = new URL(origin);
-            siteOrigin = url.origin;
-          } catch (_err) {
-            alert("Invalid URL.");
-            return;
-          }
-
-          // Get accounts from main process
-          const accounts = await ipcRenderer.invoke("credentials:list", siteOrigin);
-          
-          // Send to main process which will send to active BrowserView
-          ipcRenderer.send("show-credentials-modal", accounts);
-        } catch (err) {
-          console.error("Error in credentials button handler:", err);
-        }
-      });
-
-      credentialsModalClose.addEventListener("click", (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        credentialsModal.classList.remove("open");
-      });
-
-      // Handle credentials modal backdrop clicks
-      credentialsModal.addEventListener("click", (e) => {
-        // Only close if clicking directly on the backdrop (not the content)
-        if (e.target === credentialsModal) {
-          credentialsModal.classList.remove("open");
-        }
-      });
-
-      settingsBtn.addEventListener("click", () => {
-        console.log("Settings button clicked!");
-        openSettingsModal();
-      });
-      settingsClose.addEventListener("click", closeSettingsModal);
-      settingsCancel.addEventListener("click", closeSettingsModal);
-      settingsSave.addEventListener("click", handleSaveSettings);
-
-      // Credentials management functions
-      let editingOrigin = null;
-      let editingUsername = null;
-
-      credentialsEditCancel.addEventListener("click", () => {
-        credentialsViewList.style.display = "block";
-        credentialsEditForm.style.display = "none";
-        editingOrigin = null;
-        editingUsername = null;
-      });
-
-      credentialsEditSave.addEventListener("click", async () => {
-        if (!editingOrigin || !editingUsername) return;
-        const newUsername = credentialsEditUsername.value.trim();
-        const newPassword = credentialsEditPassword.value;
-        if (!newUsername || !newPassword) return;
-
-        // Delete old account if username changed
-        if (newUsername !== editingUsername) {
-          await ipcRenderer.invoke("credentials:delete", editingOrigin, editingUsername);
-        }
-
-        // Save new account
-        const ok = await ipcRenderer.invoke("credentials:save", editingOrigin, {
-          username: newUsername,
-          password: newPassword,
-        });
-
-        if (ok) {
-          credentialsViewList.style.display = "block";
-          credentialsEditForm.style.display = "none";
-          editingOrigin = null;
-          editingUsername = null;
-          loadAndRenderCredentials();
-        }
-      });
-
-      // Close when clicking outside the modal
-      settingsModal.addEventListener("click", (e) => {
-        if (e.target === settingsModal) {
-          closeSettingsModal();
-        }
-      });
-
       backBtn.addEventListener("click", () => ipcRenderer.invoke("tabs:back"));
       forwardBtn.addEventListener("click", () => ipcRenderer.invoke("tabs:forward"));
       reloadBtn.addEventListener("click", () => ipcRenderer.invoke("tabs:reload"));
-      clearCookies.addEventListener("click", async () => {
-        const confirmed = await ipcRenderer.invoke("dialog:confirm", {
-          message: "Do you want to clear cookies?",
-          detail: "All session cookies and local/session storage will be cleared.",
-        });
-        if (confirmed) {
-          const ok = await ipcRenderer.invoke("cookies:clear");
-          ipcRenderer.invoke("dialog:info", {
-            message: ok ? "Cookies cleared" : "Cookies could not be cleared",
-          });
-          if (ok) {
-            ipcRenderer.invoke("tabs:navigate", "https://google.com/");
-          }
-        }
-      });
-      winClose.addEventListener("click", () => ipcRenderer.send("window:close"));
-      winMin.addEventListener("click", () => ipcRenderer.send("window:minimize"));
-      winMax.addEventListener("click", () => ipcRenderer.send("window:toggle-maximize"));
+      homeBtn.addEventListener("click", () =>
+        ipcRenderer.invoke("tabs:navigate", loadSettings().homepage)
+      );
 
+      address.addEventListener("focus", () => address.select());
       address.addEventListener("keydown", (event) => {
         if (event.key === "Enter") {
           ipcRenderer.invoke("tabs:navigate", address.value);
+          address.blur();
+        }
+        if (event.key === "Escape") {
+          const active = activeTab();
+          if (active) address.value = active.url;
+          address.blur();
         }
       });
 
-      document.addEventListener("keydown", (event) => {
-        const key = event.key.toLowerCase();
-        if (!event.ctrlKey && !event.metaKey) {
-          if (event.key === "F11" || event.key === "f11") {
-            event.preventDefault();
-            ipcRenderer.invoke("window:toggle-fullscreen");
-          }
-          if (findBar.style.display === "flex" && event.key === "Escape") {
-            hideFindBar();
-          }
+      $("win-close").addEventListener("click", () => ipcRenderer.send("window:close"));
+      $("win-min").addEventListener("click", () => ipcRenderer.send("window:minimize"));
+      $("win-max").addEventListener("click", () => ipcRenderer.send("window:toggle-maximize"));
+
+      // ---------- Flash memory ----------
+      const restartFlash = async () => {
+        const ok = await confirmDialog(
+          "Restart Flash?",
+          "This frees all the memory Flash has piled up. Every game tab reloads and reconnects in a few seconds."
+        );
+        if (ok) ipcRenderer.invoke("flash:restart");
+      };
+
+      ipcRenderer.on("perf:stats", (_event, stats) => {
+        if (!stats) return;
+        flashMemBtn.hidden = !stats.flashRunning;
+        if (!stats.flashRunning) return;
+        // The number that matters for in-game slowdown is how much Flash has
+        // piled up in total, not how much of it currently sits in RAM.
+        const used = stats.flashCommitMB;
+        flashMemBtn.textContent = `Flash ${used} MB`;
+        flashMemBtn.title = `Flash has ${used} MB allocated (${stats.flashMB} MB of it in RAM right now). Click for options.`;
+        const limit = stats.limitMB > 0 ? stats.limitMB : 0;
+        flashMemBtn.classList.toggle("warn", !!limit && used >= limit);
+        flashMemBtn.classList.toggle("mid", !!limit && used >= limit * 0.75 && used < limit);
+      });
+      const freeFlashMemory = () => ipcRenderer.invoke("flash:trim");
+      flashMemBtn.addEventListener("click", () =>
+        popupMenu([
+          { label: "Hand unused memory back to Windows", click: freeFlashMemory },
+          { separator: true },
+          { label: "Restart Flash (reloads the game, fixes slowdown)…", click: restartFlash },
+        ])
+      );
+
+      // ---------- "more" menu ----------
+      const clearCookies = async () => {
+        const ok = await confirmDialog(
+          "Clear cookies and site data?",
+          "You will be logged out of every site. Saved accounts are kept."
+        );
+        if (ok) ipcRenderer.invoke("cookies:clear");
+      };
+
+      moreBtn.addEventListener("click", () =>
+        popupMenu([
+          { label: "Find in page", accelerator: "Ctrl+F", click: () => showFindBar("") },
+          { label: "Full screen", accelerator: "F11", click: () => ipcRenderer.invoke("window:toggle-fullscreen") },
+          { label: "Reset zoom", accelerator: "Ctrl+0", click: () => ipcRenderer.invoke("zoom:reset") },
+          { separator: true },
+          { label: "Hand Flash memory back to Windows", disabled: flashMemBtn.hidden, click: () => freeFlashMemory() },
+          { label: "Restart Flash…", disabled: flashMemBtn.hidden, click: restartFlash },
+          { label: "Clear cookies and site data…", click: clearCookies },
+          { separator: true },
+          { label: "View page source", click: () => ipcRenderer.invoke("tabs:view-source") },
+          { label: "Developer tools", click: () => ipcRenderer.invoke("tabs:devtools") },
+        ])
+      );
+
+      document.addEventListener("contextmenu", (event) => {
+        event.preventDefault();
+        const tabEl = event.target.closest(".tab");
+        if (tabEl) {
+          const tabId = tabEl.dataset.id;
+          const tab = state.tabs.find((t) => t.id === tabId);
+          if (!tab) return;
+          popupMenu([
+            { label: "Reload", click: () => ipcRenderer.invoke("tabs:reload", tabId) },
+            { label: "Duplicate", click: () => ipcRenderer.invoke("tabs:create", tab.url) },
+            { separator: true },
+            { label: "Close", click: () => ipcRenderer.invoke("tabs:close", tabId) },
+            {
+              label: "Close other tabs",
+              disabled: state.tabs.length < 2,
+              click: () => ipcRenderer.invoke("tabs:close-others", tabId),
+            },
+          ]);
           return;
         }
-        if (key === "t") {
-          ipcRenderer.invoke("tabs:create");
-          event.preventDefault();
+        if (event.target.closest("input")) {
+          popupMenu([{ role: "cut" }, { role: "copy" }, { role: "paste" }, { separator: true }, { role: "selectAll" }]);
+          return;
         }
-        if (key === "w") {
-          ipcRenderer.invoke("tabs:close");
-          event.preventDefault();
-        }
-        if (key === "r") {
-          ipcRenderer.invoke("tabs:reload");
-          event.preventDefault();
-        }
-        if (key === "f") {
-          event.preventDefault();
-          showFindBar("");
-        }
-        if (key === "tab") {
-          if (event.shiftKey) {
-            ipcRenderer.send("tabs:previous");
-          } else {
-            ipcRenderer.send("tabs:next");
-          }
-          event.preventDefault();
+        if (event.target.closest(".tab-row")) {
+          popupMenu([{ label: "New tab", accelerator: "Ctrl+T", click: () => ipcRenderer.invoke("tabs:create") }]);
         }
       });
 
-      tabStrip.addEventListener("dblclick", () => ipcRenderer.invoke("tabs:create"));
-
+      // ---------- find in page ----------
       const showFindBar = (text) => {
+        document.body.classList.add("finding");
         findBar.style.display = "flex";
-        if (text) {
-          findInput.value = text;
-        }
+        if (text) findInput.value = text;
         findInput.focus();
         findInput.select();
       };
 
       const hideFindBar = () => {
         findBar.style.display = "none";
+        document.body.classList.remove("finding");
         ipcRenderer.invoke("find:stop");
       };
 
@@ -1781,175 +1543,405 @@
         ipcRenderer.invoke("find:start", query, forward ? "forward" : "backward");
       };
 
-      findNext.addEventListener("click", () => triggerFind(true));
-      findPrev.addEventListener("click", () => triggerFind(false));
-      findClose.addEventListener("click", hideFindBar);
+      $("find-next").addEventListener("click", () => triggerFind(true));
+      $("find-prev").addEventListener("click", () => triggerFind(false));
+      $("find-close").addEventListener("click", hideFindBar);
       findInput.addEventListener("keydown", (event) => {
         if (event.key === "Enter") {
           triggerFind(!event.shiftKey);
           event.preventDefault();
         }
-        if (event.key === "Escape") {
-          hideFindBar();
+      });
+      ipcRenderer.on("find:open", (_event, payload) => showFindBar((payload && payload.text) || ""));
+
+      // ---------- keyboard ----------
+      document.addEventListener("keydown", (event) => {
+        const key = event.key.toLowerCase();
+        if (!event.ctrlKey && !event.metaKey) {
+          if (key === "f11") {
+            event.preventDefault();
+            ipcRenderer.invoke("window:toggle-fullscreen");
+          }
+          if (key === "escape") {
+            if (findBar.style.display === "flex") hideFindBar();
+            else if (openPanelName) closePanel();
+          }
+          return;
+        }
+        const actions = {
+          t: () => ipcRenderer.invoke("tabs:create"),
+          w: () => ipcRenderer.invoke("tabs:close"),
+          r: () => ipcRenderer.invoke("tabs:reload"),
+          f: () => showFindBar(""),
+          l: () => {
+            if (document.body.classList.contains("compact")) setCompact(false);
+            address.focus();
+          },
+          tab: () => ipcRenderer.send(event.shiftKey ? "tabs:previous" : "tabs:next"),
+        };
+        if (actions[key]) {
+          event.preventDefault();
+          actions[key]();
         }
       });
 
-      ipcRenderer.on("find:open", (_e, payload) => {
-        showFindBar((payload && payload.text) || "");
-      });
+      // ---------- settings panel ----------
+      // ---------- client icon ----------
+      // The uploaded picture is never stored as-is: it is cropped to a square and
+      // shrunk to ICON_SIZE, and only that small PNG is kept in the settings.
+      const ICON_SIZE = 64;
+      const ICON_MAX_BYTES = 5 * 1024 * 1024;
+      const ICON_MAX_SIDE = 4096;
+      const ICON_TYPES = ["image/png", "image/jpeg", "image/webp", "image/gif"];
+      let pendingIcon = "";
+      let selectedRank = "none";
+      let rankList = [];
 
-      // Context Menu Functions
-      const closeContextMenu = () => {
-        contextMenu.classList.remove("visible");
+      const renderIconPreview = () => {
+        const rank = !pendingIcon && isRank(selectedRank) ? selectedRank : "";
+        iconPreview.classList.toggle("custom", !!pendingIcon);
+        iconPreview.classList.toggle("rank", !!rank);
+        iconPreview.style.backgroundImage = pendingIcon
+          ? `url("${pendingIcon}")`
+          : rank
+          ? `url('./ranks/rank_${rank}.png')`
+          : "";
+        iconRemove.hidden = !pendingIcon && !rank;
+
+        rankGrid.innerHTML = "";
+        rankList.forEach((item) => {
+          const btn = document.createElement("button");
+          btn.className = "rank-opt";
+          btn.title = `Rank ${item}`;
+          btn.style.backgroundImage = `url('./ranks/rank_${item}.png')`;
+          if (item === rank) btn.classList.add("selected");
+          btn.addEventListener("click", () => {
+            // picking a rank replaces an uploaded picture
+            selectedRank = item;
+            pendingIcon = "";
+            setIconError("");
+            renderIconPreview();
+          });
+          rankGrid.appendChild(btn);
+        });
       };
 
-      const showContextMenu = (x, y, items) => {
-        contextMenu.innerHTML = "";
-        
-        items.forEach((item, index) => {
-          if (item.separator) {
-            const separator = document.createElement("div");
-            separator.className = "context-menu-separator";
-            contextMenu.appendChild(separator);
-            return;
-          }
+      ipcRenderer.on("ranks:list", (_event, ranks) => {
+        rankList = (ranks || []).map(String);
+        renderIconPreview();
+      });
+      ipcRenderer.send("ranks:list");
 
-          const menuItem = document.createElement("button");
-          menuItem.className = "context-menu-item";
-          if (item.disabled) menuItem.classList.add("disabled");
-          
-          menuItem.innerHTML = `
-            <span class="context-menu-item-icon">${item.icon || ""}</span>
-            <span>${item.label}</span>
-          `;
+      const setIconError = (message) => {
+        iconError.textContent = message || "";
+        iconError.hidden = !message;
+      };
 
-          if (!item.disabled) {
-            menuItem.addEventListener("click", () => {
-              item.click();
-              closeContextMenu();
-            });
-          }
-
-          contextMenu.appendChild(menuItem);
+      const loadImage = (file) =>
+        new Promise((resolve, reject) => {
+          const objectUrl = URL.createObjectURL(file);
+          const img = new Image();
+          img.onload = () => {
+            URL.revokeObjectURL(objectUrl);
+            resolve(img);
+          };
+          img.onerror = () => {
+            URL.revokeObjectURL(objectUrl);
+            reject(new Error("decode failed"));
+          };
+          img.src = objectUrl;
         });
 
-        contextMenu.style.left = x + "px";
-        contextMenu.style.top = y + "px";
-        contextMenu.classList.add("visible");
+      // Returns { dataUrl } or { error }.
+      const processIconFile = async (file) => {
+        if (!file) return { error: "No file selected." };
+        if (!ICON_TYPES.includes(file.type)) {
+          return { error: "Choose a PNG, JPG, WebP or GIF image." };
+        }
+        if (file.size > ICON_MAX_BYTES) {
+          const mb = (file.size / 1024 / 1024).toFixed(1);
+          return { error: `That file is ${mb} MB. The limit is 5 MB.` };
+        }
+        let img;
+        try {
+          img = await loadImage(file);
+        } catch (_err) {
+          return { error: "That file could not be read as an image." };
+        }
+        const width = img.naturalWidth;
+        const height = img.naturalHeight;
+        if (!width || !height) return { error: "That file could not be read as an image." };
+        if (width > ICON_MAX_SIDE || height > ICON_MAX_SIDE) {
+          return { error: `That image is ${width} × ${height} pixels. The limit is ${ICON_MAX_SIDE} × ${ICON_MAX_SIDE}.` };
+        }
 
-        // Pencere sınırlarını kontrol et
-        setTimeout(() => {
-          const rect = contextMenu.getBoundingClientRect();
-          if (rect.right > window.innerWidth) {
-            contextMenu.style.left = (window.innerWidth - rect.width - 10) + "px";
-          }
-          if (rect.bottom > window.innerHeight) {
-            contextMenu.style.top = (window.innerHeight - rect.height - 10) + "px";
-          }
-        }, 0);
+        // centre crop to a square, then halve repeatedly: one big jump from a
+        // photo down to icon size comes out jagged
+        let side = Math.min(width, height);
+        let source = img;
+        let sx = Math.floor((width - side) / 2);
+        let sy = Math.floor((height - side) / 2);
+        for (;;) {
+          const target = Math.max(ICON_SIZE, Math.ceil(side / 2));
+          const canvas = document.createElement("canvas");
+          canvas.width = target;
+          canvas.height = target;
+          const ctx = canvas.getContext("2d");
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = "high";
+          ctx.drawImage(source, sx, sy, side, side, 0, 0, target, target);
+          source = canvas;
+          side = target;
+          sx = 0;
+          sy = 0;
+          if (target === ICON_SIZE) break;
+        }
+        return { dataUrl: source.toDataURL("image/png") };
       };
 
-      // Sağ tık menüsü
-      document.addEventListener("contextmenu", (e) => {
-        e.preventDefault();
-        closeContextMenu();
+      iconUpload.addEventListener("click", () => iconFile.click());
+      iconFile.addEventListener("change", async () => {
+        const file = iconFile.files && iconFile.files[0];
+        iconFile.value = "";
+        if (!file) return;
+        const result = await processIconFile(file);
+        if (result.error) return setIconError(result.error);
+        setIconError("");
+        // an uploaded picture replaces a chosen rank
+        pendingIcon = result.dataUrl;
+        selectedRank = "none";
+        renderIconPreview();
+      });
+      iconRemove.addEventListener("click", () => {
+        pendingIcon = "";
+        selectedRank = "none";
+        setIconError("");
+        renderIconPreview();
+      });
 
-        const target = e.target.closest(".tab") || e.target.closest(".toolbar") || e.target;
-        const activeTab = state.tabs.find(t => t.id === state.activeId);
-        
-        // Right-click on tab
-        if (e.target.closest(".tab")) {
-          const tabElement = e.target.closest(".tab");
-          const tabId = tabElement.dataset.id;
-          const tab = state.tabs.find(t => t.id === tabId);
-          
-          if (tab) {
-            showContextMenu(e.clientX, e.clientY, [
-              {
-                icon: "🔄",
-                label: "Reload",
-                click: () => ipcRenderer.invoke("tabs:reload", tabId)
-              },
-              {
-                icon: "🔗",
-                label: "Open in New Tab",
-                click: () => ipcRenderer.invoke("tabs:create", tab.url)
-              },
-              { separator: true },
-              {
-                icon: "❌",
-                label: "Close Tab",
-                click: () => ipcRenderer.invoke("tabs:close", tabId)
-              }
-            ]);
-          }
+      const syncUaField = () => {
+        customUAInput.disabled = !useCustomUA.checked;
+      };
+      useCustomUA.addEventListener("change", syncUaField);
+
+      const fillSettingsForm = (settings) => {
+        const name = settings.clientName === "Your Name" ? "" : settings.clientName || "";
+        clientNameInput.value = name;
+        pendingIcon = isIconData(settings.clientIcon) ? settings.clientIcon : "";
+        selectedRank = !pendingIcon && isRank(settings.rankIcon) ? String(settings.rankIcon) : "none";
+        setIconError("");
+        renderIconPreview();
+        homepageInput.value = settings.homepage || "";
+        themeSelect.value = settings.theme || "dark";
+        saveLogin.checked = !!settings.saveLogin;
+        gpuAcceleration.checked = settings.gpuAcceleration !== false;
+        performanceMode.checked = settings.performanceMode !== false;
+        lowDpiRender.checked = !!settings.lowDpiRender;
+        flashMemoryLimit.value = settings.flashMemoryLimitMB != null ? settings.flashMemoryLimitMB : 1000;
+        flashAutoTrim.checked = settings.flashAutoTrim !== false;
+        flashForceDirect.checked = settings.flashForceDirect !== false;
+        flashQuality.value = settings.flashQuality || "default";
+        flashAutoRestart.checked = !!settings.flashAutoRestart;
+        useCustomUA.checked = !!settings.useCustomUA;
+        customUAInput.value = settings.customUserAgent || "";
+        syncUaField();
+      };
+
+      const openSettings = () => {
+        fillSettingsForm(loadSettings());
+        settingsSave.textContent = "Save";
+        settingsSave.disabled = false;
+        setPanel("settings");
+      };
+
+      const handleSaveSettings = () => {
+        const oldSettings = loadSettings();
+        const newSettings = Object.assign({}, oldSettings, {
+          homepage: homepageInput.value.trim() || DEFAULT_SETTINGS.homepage,
+          theme: themeSelect.value || "dark",
+          useCustomUA: !!useCustomUA.checked,
+          customUserAgent: customUAInput.value || "",
+          gpuAcceleration: !!gpuAcceleration.checked,
+          saveLogin: !!saveLogin.checked,
+          performanceMode: !!performanceMode.checked,
+          lowDpiRender: !!lowDpiRender.checked,
+          flashMemoryLimitMB: Math.max(0, parseInt(flashMemoryLimit.value, 10) || 0),
+          flashAutoTrim: !!flashAutoTrim.checked,
+          flashForceDirect: !!flashForceDirect.checked,
+          flashQuality: flashQuality.value || "default",
+          // saving settings gives the GPU switches another chance after a driver update
+          gpuSafeMode: false,
+          flashAutoRestart: !!flashAutoRestart.checked,
+          clientName: clientNameInput.value.trim() || "Your Name",
+          clientIcon: pendingIcon,
+          rankIcon: pendingIcon ? "none" : selectedRank,
+        });
+
+        const needsRestart =
+          newSettings.gpuAcceleration !== (oldSettings.gpuAcceleration !== false) ||
+          newSettings.performanceMode !== (oldSettings.performanceMode !== false) ||
+          newSettings.lowDpiRender !== !!oldSettings.lowDpiRender;
+
+        saveSettings(newSettings);
+        ipcRenderer.send("settings:update", newSettings);
+        updateLogo();
+        applyTheme(newSettings.theme);
+
+        settingsSave.disabled = true;
+        if (needsRestart) {
+          settingsSave.textContent = "Restarting…";
+          setTimeout(() => ipcRenderer.send("app:restart"), 800);
+        } else {
+          settingsSave.textContent = "Saved";
+          setTimeout(closePanel, 500);
         }
-        // Right-click on tab strip
-        else if (e.target.closest(".tab-container") && !e.target.closest(".tab")) {
-          showContextMenu(e.clientX, e.clientY, [
-            {
-              icon: "➕",
-              label: "New Tab",
-              click: () => ipcRenderer.invoke("tabs:create")
-            }
-          ]);
+      };
+
+      settingsBtn.addEventListener("click", () =>
+        openPanelName === "settings" ? closePanel() : openSettings()
+      );
+      $("settings-close").addEventListener("click", closePanel);
+      $("settings-cancel").addEventListener("click", closePanel);
+      settingsSave.addEventListener("click", handleSaveSettings);
+
+      // Main process holds the authoritative settings; mirror them locally.
+      ipcRenderer.invoke("settings:get").then((s) => {
+        if (!s) return;
+        localStorage.setItem("do-settings", JSON.stringify(Object.assign({}, DEFAULT_SETTINGS, s)));
+        updateLogo();
+        applyTheme(loadSettings().theme);
+      });
+      ipcRenderer.on("settings:updated", (_event, newSettings) => {
+        localStorage.setItem("do-settings", JSON.stringify(Object.assign({}, DEFAULT_SETTINGS, newSettings)));
+        updateLogo();
+        applyTheme(loadSettings().theme);
+      });
+
+      // ---------- accounts panel ----------
+      let editingUsername = null;
+
+      const currentOrigin = () => {
+        const active = activeTab();
+        if (!active) return null;
+        try {
+          const url = new URL(active.url);
+          return /^https?:$/.test(url.protocol) ? url.origin : null;
+        } catch (_err) {
+          return null;
         }
-        // Right-click on toolbar or address bar
-        else if (e.target.closest(".toolbar") || e.target.id === "address" || e.target.closest(".address-bar")) {
-          const items = [
-            {
-              icon: "↶",
-              label: "Back",
-              disabled: !activeTab || !activeTab.canGoBack,
-              click: () => ipcRenderer.invoke("tabs:back")
-            },
-            {
-              icon: "↷",
-              label: "Forward",
-              disabled: !activeTab || !activeTab.canGoForward,
-              click: () => ipcRenderer.invoke("tabs:forward")
-            },
-            {
-              icon: "🔄",
-              label: "Reload",
-              click: () => ipcRenderer.invoke("tabs:reload")
-            }
-          ];
-          
-          if (activeTab) {
-            items.push({ separator: true });
-            items.push({
-              icon: "📄",
-              label: "View Page Source",
-              click: () => ipcRenderer.invoke("tabs:view-source")
+      };
+
+      const resetAccountForm = () => {
+        editingUsername = null;
+        accountUsername.value = "";
+        accountPassword.value = "";
+        accountFormTitle.textContent = "Add account";
+        accountSave.textContent = "Add account";
+        accountCancel.hidden = true;
+      };
+
+      const renderAccounts = async () => {
+        const origin = currentOrigin();
+        accountsList.innerHTML = "";
+        accountsSite.hidden = !origin;
+        accountSave.disabled = !origin;
+        if (!origin) {
+          accountsList.innerHTML = '<div class="empty">Open a website first. Accounts are saved per site.</div>';
+          return;
+        }
+        accountsSite.textContent = new URL(origin).hostname;
+        const accounts = await ipcRenderer.invoke("credentials:list", origin);
+        if (origin !== currentOrigin()) return;
+        if (!accounts || !accounts.length) {
+          accountsList.innerHTML = '<div class="empty">No saved accounts for this site yet.</div>';
+          return;
+        }
+        accounts.forEach((account) => {
+          const item = document.createElement("div");
+          item.className = "account";
+
+          const avatar = document.createElement("div");
+          avatar.className = "account-avatar";
+          avatar.textContent = (account.username || "?").charAt(0);
+
+          const name = document.createElement("div");
+          name.className = "account-name";
+          name.textContent = account.username;
+          name.title = account.username;
+
+          const loginBtn = document.createElement("button");
+          loginBtn.className = "btn small primary";
+          loginBtn.textContent = "Log in";
+          loginBtn.addEventListener("click", () => {
+            ipcRenderer.invoke("credentials:apply", {
+              username: account.username,
+              password: account.password,
             });
-            items.push({
-              icon: "🔍",
-              label: "Inspect Element",
-              click: () => ipcRenderer.invoke("tabs:inspect-element", {
-                x: e.clientX,
-                y: e.clientY
-              })
-            });
-          }
-          
-          showContextMenu(e.clientX, e.clientY, items);
+            closePanel();
+          });
+
+          const editBtn = document.createElement("button");
+          editBtn.className = "btn small";
+          editBtn.textContent = "Edit";
+          editBtn.addEventListener("click", () => {
+            editingUsername = account.username;
+            accountUsername.value = account.username;
+            accountPassword.value = account.password;
+            accountFormTitle.textContent = "Edit account";
+            accountSave.textContent = "Save changes";
+            accountCancel.hidden = false;
+            accountUsername.focus();
+          });
+
+          const deleteBtn = document.createElement("button");
+          deleteBtn.className = "btn small danger";
+          deleteBtn.textContent = "Delete";
+          deleteBtn.addEventListener("click", async () => {
+            const ok = await confirmDialog(`Delete the saved account "${account.username}"?`);
+            if (!ok) return;
+            await ipcRenderer.invoke("credentials:delete", origin, account.username);
+            if (editingUsername === account.username) resetAccountForm();
+            renderAccounts();
+          });
+
+          item.append(avatar, name, loginBtn, editBtn, deleteBtn);
+          accountsList.appendChild(item);
+        });
+      };
+
+      accountSave.addEventListener("click", async () => {
+        const origin = currentOrigin();
+        const username = accountUsername.value.trim();
+        const password = accountPassword.value;
+        if (!origin || !username || !password) {
+          (username ? accountPassword : accountUsername).focus();
+          return;
         }
+        if (editingUsername && editingUsername !== username) {
+          await ipcRenderer.invoke("credentials:delete", origin, editingUsername);
+        }
+        await ipcRenderer.invoke("credentials:save", origin, { username, password });
+        resetAccountForm();
+        renderAccounts();
+      });
+      accountCancel.addEventListener("click", resetAccountForm);
+      accountPassword.addEventListener("keydown", (event) => {
+        if (event.key === "Enter") accountSave.click();
       });
 
-      // Başka yere tıklanırsa menüyü kapat
-      document.addEventListener("click", (e) => {
-        if (!e.target.closest(".context-menu")) {
-          closeContextMenu();
-        }
+      accountsBtn.addEventListener("click", () => {
+        if (openPanelName === "accounts") return closePanel();
+        resetAccountForm();
+        setPanel("accounts");
+        renderAccounts();
       });
+      $("accounts-close").addEventListener("click", closePanel);
 
-      // Escape tuşu ile menüyü kapat
-      document.addEventListener("keydown", (e) => {
-        if (e.key === "Escape") {
-          closeContextMenu();
-        }
-      });
+      // ---------- boot ----------
+      updateLogo();
+      applyTheme(loadSettings().theme);
+      ipcRenderer.send("tabs:request-state");
+      notifyHeight();
     </script>
   </body>
 </html>

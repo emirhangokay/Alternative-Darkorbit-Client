@@ -446,34 +446,7 @@ const attachViewEvents = (tab) => {
       return;
     }
 
-    const menu = Menu.buildFromTemplate([
-      {
-        label: "Reload",
-        click: () => view.webContents.reload(),
-      },
-      {
-        label: params.linkURL ? "Open Link" : "Back",
-        enabled: params.linkURL ? true : view.webContents.canGoBack(),
-        click: () => {
-          if (params.linkURL) {
-            navigateActive(params.linkURL);
-          } else if (view.webContents.canGoBack()) {
-            view.webContents.goBack();
-          }
-        },
-      },
-      {
-        label: "Forward",
-        enabled: view.webContents.canGoForward(),
-        click: () => view.webContents.goForward(),
-      },
-      { type: "separator" },
-      {
-        label: "Inspect Element",
-        click: () => view.webContents.inspectElement(params.x, params.y),
-      },
-    ]);
-    menu.popup({ window: mainWindow });
+    Menu.buildFromTemplate(buildContextMenu(view.webContents, params)).popup({ window: mainWindow });
   });
 
   view.webContents.on("before-input-event", (event, input) => {
@@ -1088,9 +1061,29 @@ ipcMain.handle("ui:menu", (_event, items) => {
   });
 });
 
+// The game view shrinks/grows in step with the panel's 200 ms CSS slide (same ease-out curve),
+// so the panel slides in beside the game instead of popping over it.
+const PANEL_SLIDE_MS = 200;
+let panelSlideTimer = null;
 ipcMain.on("ui:side-panel", (_event, width) => {
-  sidePanelWidth = typeof width === "number" && width > 0 ? Math.round(width) : 0;
-  layoutActiveView();
+  const target = typeof width === "number" && width > 0 ? Math.round(width) : 0;
+  clearInterval(panelSlideTimer);
+  panelSlideTimer = null;
+  const from = sidePanelWidth;
+  if (from === target) return layoutActiveView();
+  const start = Date.now();
+  const step = () => {
+    const t = Math.min(1, (Date.now() - start) / PANEL_SLIDE_MS);
+    const eased = 1 - Math.pow(1 - t, 3);
+    sidePanelWidth = Math.round(from + (target - from) * eased);
+    layoutActiveView();
+    if (t >= 1) {
+      clearInterval(panelSlideTimer);
+      panelSlideTimer = null;
+    }
+  };
+  step();
+  panelSlideTimer = setInterval(step, 16);
 });
 
 // Fill and submit the login form of the active tab with a saved account.
@@ -1244,6 +1237,21 @@ ipcMain.handle("credentials:save", (_e, origin, payload) => {
   writeCredentials(store);
   return true;
 });
+ipcMain.handle("credentials:reorder", (_e, origin, usernames) => {
+  if (!origin || !Array.isArray(usernames)) return false;
+  const baseDomain = getBaseDomain(origin);
+  const store = readCredentials();
+  const list = store[baseDomain];
+  if (!Array.isArray(list)) return false;
+  const rank = new Map(usernames.map((name, index) => [name, index]));
+  // Accounts missing from the new order (e.g. added meanwhile) keep their place at the end.
+  store[baseDomain] = list
+    .map((cred, index) => ({ cred, key: rank.has(cred.username) ? rank.get(cred.username) : usernames.length + index }))
+    .sort((a, b) => a.key - b.key)
+    .map((entry) => entry.cred);
+  writeCredentials(store);
+  return true;
+});
 ipcMain.handle("credentials:delete", (_e, origin, username) => {
   if (!origin || !username) return false;
   const baseDomain = getBaseDomain(origin);
@@ -1372,79 +1380,62 @@ ipcMain.on("ranks:list", (event) => {
   }
 });
 
-ipcMain.on("page:context-menu", (_event, data) => {
-  if (!mainWindow || mainWindow.isDestroyed()) return;
-  
-  const template = [];
-  
-
-    template.push({
-      label: `Search "${data.selection.substring(0, 30)}${data.selection.length > 30 ? "..." : ""}"`,
-      click: () => {
-        const activeTab = tabs.find((t) => t.id === activeTabId);
-        if (activeTab) {
-          navigateActive(`https://www.google.com/search?q=${encodeURIComponent(data.selection)}`);
-        }
-      }
-    });
-    template.push({ type: "separator" });
-  
-  // Link options
-  if (data.isLink) {
-    template.push({
-      label: "🔗 Open Link in New Tab",
-      click: () => createTab(data.linkUrl, true)
-    });
-    template.push({
-      label: "📋 Copy Link",
-      click: () => require("electron").clipboard.writeText(data.linkUrl)
-    });
-    template.push({ type: "separator" });
+// Right-click menu for web pages, in the usual browser order. Flash keeps its own menu.
+const buildContextMenu = (wc, params) => {
+  const { clipboard } = require("electron");
+  const groups = [];
+  if (params.linkURL) {
+    groups.push([
+      { label: "Open link in new tab", click: () => createTab(params.linkURL, true) },
+      { label: "Copy link address", click: () => clipboard.writeText(params.linkURL) },
+    ]);
   }
-  
-  // Image options
-  if (data.isImage) {
-    template.push({
-      label: "🖼️ Open Image in New Tab",
-      click: () => createTab(data.imageUrl, true)
-    });
-    template.push({
-      label: "💾 Download Image",
-      click: () => {
-        const activeTab = tabs.find((t) => t.id === activeTabId);
-        if (activeTab && activeTab.view && activeTab.view.webContents) {
-          activeTab.view.webContents.downloadURL(data.imageUrl);
-        }
-      }
-    });
-    template.push({ type: "separator" });
+  if (params.mediaType === "image" && params.srcURL) {
+    groups.push([
+      { label: "Open image in new tab", click: () => createTab(params.srcURL, true) },
+      { label: "Save image as...", click: () => wc.downloadURL(params.srcURL) },
+      { label: "Copy image", click: () => wc.copyImageAt(params.x, params.y) },
+      { label: "Copy image address", click: () => clipboard.writeText(params.srcURL) },
+    ]);
   }
-  
-  // Page options
-  template.push({
-    label: "📄 View Page Source",
-    click: () => {
-      const activeTab = tabs.find((t) => t.id === activeTabId);
-      if (activeTab) {
-        const url = activeTab.view.webContents.getURL();
-        createTab(`view-source:${url}`, true);
-      }
-    }
-  });
-  
-  template.push({
-    label: "🔍 Inspect Element (DevTools)",
-    click: () => {
-      const activeTab = tabs.find((t) => t.id === activeTabId);
-      if (activeTab && activeTab.view && activeTab.view.webContents) {
-        activeTab.view.webContents.inspectElement(data.x, data.y);
-      }
-    }
-  });
-  
-  const contextMenu = Menu.buildFromTemplate(template);
-  contextMenu.popup({ window: mainWindow });
-});
+  const selection = (params.selectionText || "").trim();
+  if (params.isEditable) {
+    const flags = params.editFlags || {};
+    groups.push([
+      { label: "Undo", role: "undo", enabled: !!flags.canUndo },
+      { label: "Redo", role: "redo", enabled: !!flags.canRedo },
+    ]);
+    groups.push([
+      { label: "Cut", role: "cut", enabled: !!flags.canCut },
+      { label: "Copy", role: "copy", enabled: !!flags.canCopy },
+      { label: "Paste", role: "paste", enabled: !!flags.canPaste },
+      { label: "Select all", role: "selectAll" },
+    ]);
+  } else if (selection) {
+    groups.push([{ label: "Copy", role: "copy" }]);
+  }
+  if (!params.linkURL && !params.isEditable && !selection && params.mediaType !== "image") {
+    groups.push([
+      { label: "Back", enabled: wc.canGoBack(), click: () => wc.goBack() },
+      { label: "Forward", enabled: wc.canGoForward(), click: () => wc.goForward() },
+      { label: "Reload", click: () => wc.reload() },
+    ]);
+  }
+  groups.push([
+    { label: "View page source", click: () => createTab(`view-source:${wc.getURL()}`, true) },
+    { label: "Inspect", click: () => wc.inspectElement(params.x, params.y) },
+  ]);
+  if (selection) {
+    const short = selection.length > 30 ? `${selection.slice(0, 30)}...` : selection;
+    groups.push([
+      {
+        label: `Search Google for "${short.replace(/&/g, "&&")}"`,
+        click: () => createTab(`https://www.google.com/search?q=${encodeURIComponent(selection)}`, true),
+      },
+    ]);
+  }
+  return groups.flatMap((group, index) => (index ? [{ type: "separator" }, ...group] : group));
+};
 
 app.on("ready", () => {
   createMainWindow();

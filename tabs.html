@@ -571,6 +571,7 @@
         position: relative;
         flex: 1;
         min-height: 0;
+        overflow: hidden;
         background: var(--bg-0);
       }
 
@@ -580,14 +581,21 @@
         right: 0;
         bottom: 0;
         width: 380px;
-        display: none;
+        display: flex;
         flex-direction: column;
         background: var(--bg-1);
         border-left: 1px solid var(--line);
+        /* Slides in from the right edge; the game view shrinks in step (see ui:side-panel). */
+        transform: translateX(100%);
+        visibility: hidden;
+        transition: transform 0.2s cubic-bezier(0.33, 1, 0.68, 1), visibility 0s linear 0.2s;
       }
 
       .panel.open {
-        display: flex;
+        z-index: 1;
+        transform: none;
+        visibility: visible;
+        transition: transform 0.2s cubic-bezier(0.33, 1, 0.68, 1), visibility 0s;
       }
 
       .panel-head {
@@ -864,15 +872,74 @@
         font-size: 11.5px;
       }
 
+      /* The list scrolls on its own so the add-account form stays in view. */
+      #accounts-panel .panel-body {
+        display: flex;
+        flex-direction: column;
+      }
+
+      #accounts-panel .panel-body > * {
+        flex-shrink: 0;
+      }
+
+      #accounts-panel #accounts-list {
+        flex: 0 1 auto;
+        min-height: 120px;
+        overflow-y: auto;
+        margin-right: -8px;
+        padding-right: 4px;
+      }
+
+      #accounts-list::-webkit-scrollbar {
+        width: 8px;
+      }
+
+      #accounts-list::-webkit-scrollbar-thumb {
+        background: var(--bg-3);
+        border: 2px solid var(--bg-1);
+        border-radius: 4px;
+      }
+
       .account {
         display: flex;
         align-items: center;
         gap: 8px;
-        padding: 8px 8px 8px 12px;
+        padding: 8px 8px 8px 4px;
         margin-bottom: 6px;
         border: 1px solid var(--line);
         border-radius: 10px;
         background: var(--bg-2);
+      }
+
+      .account-grip {
+        width: 18px;
+        height: 28px;
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--muted);
+        cursor: grab;
+        touch-action: none;
+      }
+
+      .account-grip:hover {
+        color: var(--text);
+      }
+
+      .account.dragging {
+        position: relative;
+        z-index: 1;
+        border-color: var(--accent);
+        /* Opaque while lifted so the rows underneath don't show through. */
+        background: linear-gradient(var(--bg-2), var(--bg-2)), var(--bg-1);
+        box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+      }
+
+      body.reordering,
+      body.reordering .account-grip {
+        cursor: grabbing;
+        user-select: none;
       }
 
       .account-avatar {
@@ -1109,6 +1176,7 @@
         close: '<path d="m6 6 12 12"/><path d="M18 6 6 18"/>',
         chevronUp: '<path d="m6 15 6-6 6 6"/>',
         chevronDown: '<path d="m6 9 6 6 6-6"/>',
+        grip: '<circle cx="9" cy="6" r="1"/><circle cx="15" cy="6" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="9" cy="18" r="1"/><circle cx="15" cy="18" r="1"/>',
         minimize: '<path d="M5 12h14"/>',
         maximize: '<rect x="5" y="5" width="14" height="14" rx="1"/>',
       };
@@ -1792,6 +1860,8 @@
       };
 
       const renderAccounts = async () => {
+        // The list is rebuilt below, so drop any drag in progress without saving it.
+        if (accountDrag) accountDrag.finish("cancel");
         const origin = currentOrigin();
         accountsList.innerHTML = "";
         accountsSite.hidden = !origin;
@@ -1810,6 +1880,13 @@
         accounts.forEach((account) => {
           const item = document.createElement("div");
           item.className = "account";
+          item.dataset.username = account.username;
+
+          const grip = document.createElement("div");
+          grip.className = "account-grip";
+          grip.title = "Drag to reorder";
+          grip.innerHTML = iconSvg("grip");
+          grip.addEventListener("pointerdown", (event) => startAccountDrag(event, item, origin));
 
           const avatar = document.createElement("div");
           avatar.className = "account-avatar";
@@ -1855,9 +1932,99 @@
             renderAccounts();
           });
 
-          item.append(avatar, name, loginBtn, editBtn, deleteBtn);
+          item.append(grip, avatar, name, loginBtn, editBtn, deleteBtn);
           accountsList.appendChild(item);
         });
+      };
+
+      // Drag an account by its grip. The dragged row follows the pointer, the others slide aside,
+      // and the DOM is reordered only once on release (moving the row mid-drag loses the pointer).
+      let accountDrag = null;
+      const startAccountDrag = (event, item, origin) => {
+        if (event.button !== 0 || accountDrag) return;
+        event.preventDefault();
+        const rows = [...accountsList.children].filter((el) => el.classList.contains("account"));
+        const from = rows.indexOf(item);
+        if (from < 0 || rows.length < 2) return;
+        const style = getComputedStyle(item);
+        const step = item.offsetHeight + parseFloat(style.marginTop) + parseFloat(style.marginBottom);
+        const startY = event.clientY;
+        const startScroll = accountsList.scrollTop;
+        let lastY = startY;
+        let target = from;
+
+        item.classList.add("dragging");
+        document.body.classList.add("reordering");
+        rows.forEach((row) => {
+          if (row !== item) row.style.transition = "transform 0.15s ease";
+        });
+
+        const update = () => {
+          const dy = lastY - startY + (accountsList.scrollTop - startScroll);
+          const minDy = -from * step;
+          const maxDy = (rows.length - 1 - from) * step;
+          item.style.transform = `translateY(${Math.max(minDy, Math.min(maxDy, dy))}px)`;
+          target = Math.max(0, Math.min(rows.length - 1, from + Math.round(dy / step)));
+          rows.forEach((row, index) => {
+            if (row === item) return;
+            let shift = 0;
+            if (from < index && index <= target) shift = -step;
+            else if (target <= index && index < from) shift = step;
+            row.style.transform = shift ? `translateY(${shift}px)` : "";
+          });
+        };
+
+        const autoScroll = () => {
+          const rect = accountsList.getBoundingClientRect();
+          const edge = 36;
+          let delta = 0;
+          if (lastY < rect.top + edge) delta = -Math.ceil((rect.top + edge - lastY) / 3);
+          else if (lastY > rect.bottom - edge) delta = Math.ceil((lastY - rect.bottom + edge) / 3);
+          if (!delta) return;
+          const before = accountsList.scrollTop;
+          accountsList.scrollTop += delta;
+          if (accountsList.scrollTop !== before) update();
+        };
+
+        const onMove = (moveEvent) => {
+          // Button released somewhere we could not see (e.g. over the game view).
+          if (!(moveEvent.buttons & 1)) return finish();
+          lastY = moveEvent.clientY;
+          update();
+        };
+
+        const finish = async (reason) => {
+          if (accountDrag !== drag) return;
+          accountDrag = null;
+          window.removeEventListener("pointermove", onMove, true);
+          window.removeEventListener("pointerup", finish, true);
+          window.removeEventListener("pointercancel", finish, true);
+          window.removeEventListener("blur", finish);
+          clearInterval(scrollTimer);
+          rows.forEach((row) => {
+            row.style.transition = "";
+            row.style.transform = "";
+          });
+          item.classList.remove("dragging");
+          document.body.classList.remove("reordering");
+          if (reason === "cancel" || target === from) return;
+          const order = rows.filter((row) => row !== item);
+          order.splice(target, 0, item);
+          order.forEach((row) => accountsList.appendChild(row));
+          await ipcRenderer.invoke(
+            "credentials:reorder",
+            origin,
+            order.map((row) => row.dataset.username)
+          );
+        };
+
+        const drag = { finish };
+        accountDrag = drag;
+        window.addEventListener("pointermove", onMove, true);
+        window.addEventListener("pointerup", finish, true);
+        window.addEventListener("pointercancel", finish, true);
+        window.addEventListener("blur", finish);
+        const scrollTimer = setInterval(autoScroll, 16);
       };
 
       accountSave.addEventListener("click", async () => {

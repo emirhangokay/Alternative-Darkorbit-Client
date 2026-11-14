@@ -3,6 +3,11 @@
   <head>
     <meta charset="UTF-8" />
     <title>DarkOrbit Client</title>
+    <script>
+      if (new URLSearchParams(location.search).has("overlay")) {
+        document.documentElement.classList.add("overlay");
+      }
+    </script>
     <style>
       :root {
         --bg-0: #0a0d13;
@@ -580,22 +585,40 @@
         top: 0;
         right: 0;
         bottom: 0;
-        width: 380px;
-        display: flex;
+        width: 100%;
+        display: none;
         flex-direction: column;
         background: var(--bg-1);
         border-left: 1px solid var(--line);
-        /* Slides in from the right edge; the game view shrinks in step (see ui:side-panel). */
+      }
+
+      /* Panels live in a separate overlay view that slides over the game (see index.js),
+         so the main window never shows them and the game is never pushed aside. */
+      /* The overlay view itself is transparent and never moves; the panel slides inside it
+         on the compositor, which stays smooth even with Flash running underneath. */
+      html.overlay .panel {
+        display: flex;
         transform: translateX(100%);
         visibility: hidden;
         transition: transform 0.2s cubic-bezier(0.33, 1, 0.68, 1), visibility 0s linear 0.2s;
+        will-change: transform;
       }
 
-      .panel.open {
+      html.overlay .panel.open {
         z-index: 1;
         transform: none;
         visibility: visible;
         transition: transform 0.2s cubic-bezier(0.33, 1, 0.68, 1), visibility 0s;
+      }
+
+      html.overlay #chrome-shell {
+        display: none;
+      }
+
+      html.overlay,
+      html.overlay body,
+      html.overlay .stage {
+        background: transparent;
       }
 
       .panel-head {
@@ -1161,6 +1184,7 @@
 
     <script>
       const { ipcRenderer } = require("electron");
+      const IS_OVERLAY = document.documentElement.classList.contains("overlay");
 
       // ---------- icons ----------
       const ICONS = {
@@ -1238,7 +1262,6 @@
       const findBar = $("find-bar");
       const findInput = $("find-input");
 
-      const PANEL_WIDTH = 380;
       const DEFAULT_NAME = "DarkOrbit Client";
       const DEFAULT_SETTINGS = {
         homepage: "http://darkorbit.com/",
@@ -1299,6 +1322,7 @@
 
       // ---------- layout ----------
       const notifyHeight = () => {
+        if (IS_OVERLAY) return;
         const full = document.body.classList.contains("fullscreen");
         const height = full ? 0 : Math.ceil(chromeShell.getBoundingClientRect().height);
         ipcRenderer.send("ui:header-height", height);
@@ -1325,16 +1349,33 @@
       const panelButtons = { settings: settingsBtn, accounts: accountsBtn };
       let openPanelName = null;
 
-      const setPanel = (name) => {
-        openPanelName = name;
-        Object.keys(panels).forEach((key) => {
-          panels[key].classList.toggle("open", key === name);
-          panelButtons[key].classList.toggle("on", key === name);
-        });
-        // The game view shrinks to make room, so the game keeps running next to the panel.
-        ipcRenderer.send("ui:side-panel", name ? PANEL_WIDTH : 0);
-      };
+      // The main process owns which panel is open and tells both this window and the
+      // overlay view; the overlay draws the panel on top of the game.
+      const setPanel = (name) => ipcRenderer.send("ui:side-panel", name || null);
       const closePanel = () => setPanel(null);
+      const applyPanel = (name) => {
+        const previous = openPanelName;
+        openPanelName = name;
+        const toggle = () =>
+          Object.keys(panels).forEach((key) => {
+            if (openPanelName !== name) return;
+            panels[key].classList.toggle("open", key === name);
+            panelButtons[key].classList.toggle("on", key === name);
+          });
+        // When the overlay has just been put on screen, wait until it paints once so the
+        // slide-in transition actually plays instead of jumping to the end.
+        if (IS_OVERLAY && name && !previous) requestAnimationFrame(() => requestAnimationFrame(toggle));
+        else toggle();
+        if (!IS_OVERLAY || name === previous) return;
+        if (name === "settings") prepareSettings();
+        if (name === "accounts") {
+          resetAccountForm();
+          renderAccounts();
+        }
+        const body = name && panels[name].querySelector(".panel-body");
+        if (body) body.scrollTop = 0;
+      };
+      ipcRenderer.on("panel:state", (_event, name) => applyPanel(name || null));
 
       // ---------- native menus (drawn above the game view) ----------
       const popupMenu = async (items) => {
@@ -1770,12 +1811,12 @@
         syncUaField();
       };
 
-      const openSettings = () => {
+      const prepareSettings = () => {
         fillSettingsForm(loadSettings());
         settingsSave.textContent = "Save";
         settingsSave.disabled = false;
-        setPanel("settings");
       };
+      const openSettings = () => setPanel("settings");
 
       const handleSaveSettings = () => {
         const oldSettings = loadSettings();
@@ -2048,10 +2089,7 @@
       });
 
       accountsBtn.addEventListener("click", () => {
-        if (openPanelName === "accounts") return closePanel();
-        resetAccountForm();
-        setPanel("accounts");
-        renderAccounts();
+        setPanel(openPanelName === "accounts" ? null : "accounts");
       });
       $("accounts-close").addEventListener("click", closePanel);
 

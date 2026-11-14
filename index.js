@@ -34,7 +34,6 @@ let mainWindow;
 let tabs = [];
 let activeTabId = null;
 let chromeHeight = TAB_BAR_HEIGHT;
-let sidePanelWidth = 0;
 let pendingAutofill = new Map();
 let isFullScreen = false;
 const defaultZoom = 1;
@@ -355,6 +354,7 @@ const broadcastState = () => {
     canGoForward,
   };
   mainWindow.webContents.send("tabs:update", payload);
+  if (panelView && !panelView.webContents.isDestroyed()) panelView.webContents.send("tabs:update", payload);
 };
 
 const findTab = (id) => tabs.find((t) => t.id === id);
@@ -364,9 +364,7 @@ const findTabByWebContentsId = (wcId) =>
 const safeRemoveViewFromWindow = (view) => {
   if (!view || !mainWindow) return;
   try {
-    if (mainWindow.getBrowserView() === view) {
-      mainWindow.removeBrowserView(view);
-    }
+    mainWindow.removeBrowserView(view);
   } catch (_err) {
     // ignore
   }
@@ -379,11 +377,90 @@ const layoutActiveView = () => {
   activeTab.view.setBounds({
     x: 0,
     y: chromeHeight,
-    // A settings/accounts panel docks on the right; the game keeps running beside it.
-    width: Math.max(width - sidePanelWidth, 200),
+    width: Math.max(width, 200),
     height: Math.max(height - chromeHeight, 200),
   });
   activeTab.view.setAutoResize({ width: true, height: true });
+  layoutPanelView();
+};
+
+// ---------- settings/accounts overlay ----------
+// The panels are drawn by a second BrowserView (tabs.html?overlay) stacked above the
+// game view. It slides in from the right over the game; the game is never resized.
+const PANEL_WIDTH = 380;
+const PANEL_SLIDE_MS = 200;
+let panelView = null;
+let panelAttached = false;
+let panelName = null;
+let panelSlideTimer = null;
+
+const ensurePanelView = () => {
+  if (panelView && !panelView.webContents.isDestroyed()) return panelView;
+  panelView = new BrowserView({
+    webPreferences: { nodeIntegration: true, contextIsolation: false },
+  });
+  // Transparent, so the game shows through until the panel has slid in.
+  panelView.setBackgroundColor("#00000000");
+  panelView.webContents.loadFile(path.join(__dirname, "tabs.html"), { query: { overlay: "1" } });
+  panelAttached = false;
+  return panelView;
+};
+
+const layoutPanelView = () => {
+  if (!panelView || !panelAttached || !mainWindow || mainWindow.isDestroyed()) return;
+  const [width, height] = mainWindow.getContentSize();
+  panelView.setBounds({
+    x: width - PANEL_WIDTH,
+    y: chromeHeight,
+    width: PANEL_WIDTH,
+    height: Math.max(height - chromeHeight, 200),
+  });
+};
+
+const attachPanelView = () => {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  ensurePanelView();
+  if (panelAttached) return;
+  // Added last, so it is drawn on top of the game view.
+  mainWindow.addBrowserView(panelView);
+  panelAttached = true;
+  layoutPanelView();
+};
+
+const detachPanelView = () => {
+  if (!panelView || !panelAttached || !mainWindow || mainWindow.isDestroyed()) return;
+  try {
+    mainWindow.removeBrowserView(panelView);
+  } catch (_err) {}
+  panelAttached = false;
+};
+
+const sendPanelState = () => {
+  if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send("panel:state", panelName);
+  if (panelView && !panelView.webContents.isDestroyed()) panelView.webContents.send("panel:state", panelName);
+};
+
+const setPanel = (name) => {
+  const next = name === "settings" || name === "accounts" ? name : null;
+  if (next === panelName) return;
+  panelName = next;
+  sendPanelState();
+  // The view sits still at its final place; the panel inside it slides with a CSS
+  // transition (GPU-composited, smooth). Moving the native view every frame was choppy.
+  clearTimeout(panelSlideTimer);
+  panelSlideTimer = null;
+  if (next) {
+    attachPanelView();
+    panelView.webContents.focus();
+  } else {
+    const active = findTab(activeTabId);
+    if (active && !active.view.webContents.isDestroyed()) active.view.webContents.focus();
+    // Let the slide-out finish, then take the view off the game so clicks reach it.
+    panelSlideTimer = setTimeout(() => {
+      panelSlideTimer = null;
+      if (!panelName) detachPanelView();
+    }, PANEL_SLIDE_MS + 60);
+  }
 };
 
 const attachViewEvents = (tab) => {
@@ -566,6 +643,10 @@ const setActiveTab = (id) => {
 
   activeTabId = id;
   mainWindow.setBrowserView(tab.view);
+  if (panelAttached) {
+    panelAttached = false;
+    attachPanelView();
+  }
   setTabActivity(tab, true);
   if (typeof tab.zoom === "number") {
     tab.view.webContents.setZoomFactor(tab.zoom);
@@ -623,6 +704,7 @@ const createMainWindow = () => {
   mainWindow.maximize();
 
   mainWindow.loadFile(path.join(__dirname, "tabs.html"));
+  ensurePanelView();
   mainWindow.on("resize", layoutActiveView);
   mainWindow.on("focus", () => {
     unfocusedSince = 0;
@@ -648,6 +730,10 @@ const createMainWindow = () => {
     globalShortcut.unregisterAll();
     tabs.forEach(destroyTab);
     tabs = [];
+    clearTimeout(panelSlideTimer);
+    if (panelView && !panelView.webContents.isDestroyed()) panelView.webContents.destroy();
+    panelView = null;
+    panelAttached = false;
     mainWindow = null;
   });
 };
@@ -1061,30 +1147,7 @@ ipcMain.handle("ui:menu", (_event, items) => {
   });
 });
 
-// The game view shrinks/grows in step with the panel's 200 ms CSS slide (same ease-out curve),
-// so the panel slides in beside the game instead of popping over it.
-const PANEL_SLIDE_MS = 200;
-let panelSlideTimer = null;
-ipcMain.on("ui:side-panel", (_event, width) => {
-  const target = typeof width === "number" && width > 0 ? Math.round(width) : 0;
-  clearInterval(panelSlideTimer);
-  panelSlideTimer = null;
-  const from = sidePanelWidth;
-  if (from === target) return layoutActiveView();
-  const start = Date.now();
-  const step = () => {
-    const t = Math.min(1, (Date.now() - start) / PANEL_SLIDE_MS);
-    const eased = 1 - Math.pow(1 - t, 3);
-    sidePanelWidth = Math.round(from + (target - from) * eased);
-    layoutActiveView();
-    if (t >= 1) {
-      clearInterval(panelSlideTimer);
-      panelSlideTimer = null;
-    }
-  };
-  step();
-  panelSlideTimer = setInterval(step, 16);
-});
+ipcMain.on("ui:side-panel", (_event, name) => setPanel(name));
 
 // Fill and submit the login form of the active tab with a saved account.
 ipcMain.handle("credentials:apply", (_event, account) => {
@@ -1347,6 +1410,7 @@ ipcMain.on("settings:update", (_event, newSettings) => {
 
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send("settings:updated", settings);
+    if (panelView && !panelView.webContents.isDestroyed()) panelView.webContents.send("settings:updated", settings);
   }
 });
 

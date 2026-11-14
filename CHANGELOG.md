@@ -8,7 +8,7 @@ Download and run `Alternative Darkorbit Client Setup 2.1.0.exe`. It updates an e
 ### What's new
 - **Saved accounts:** the list scrolls when you have many accounts, and the add-account form stays in view.
 - **Reorder accounts:** drag an account by its handle (⠿) to move it up or down. The order is saved.
-- **Sliding panels:** Settings and Accounts slide in and out, and the game view resizes along with them.
+- **Sliding panels:** Settings and Accounts slide in smoothly on top of the game. The game is no longer pushed aside or resized.
 - **Right-click menu:** standard browser order, no icons. "Search Google for" sits at the bottom, appears only when text is selected and opens in a new tab.
 
 ## 2.0.0

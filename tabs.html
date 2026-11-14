@@ -1058,6 +1058,7 @@
           <div class="field">
             <input class="input" type="text" id="custom-ua" placeholder="User agent string" />
           </div>
+          <span class="hint" id="app-version" style="margin-top: 18px;"></span>
         </div>
         <div class="panel-foot">
           <button class="btn" id="settings-cancel">Cancel</button>
@@ -1886,6 +1887,10 @@
         renderAccounts();
       });
       $("accounts-close").addEventListener("click", closePanel);
+
+      ipcRenderer.invoke("app:version").then((version) => {
+        if (version) $("app-version").textContent = `Alternative Darkorbit Client ${version}`;
+      });
 
       // ---------- boot ----------
       updateLogo();

@@ -1,9 +1,12 @@
-# Alternative Darkorbit Browser
+# Alternative Darkorbit Client 2.0
 An Electron-based game client developed for DarkOrbit. This repository contains the application’s source code, user interface, and configuration files.
 
 ---
 
 ## ✨ Features
+
+See [CHANGELOG.md](CHANGELOG.md) for what changed in 2.0.
+
 
 - Tabs in the title bar, a toolbar you can hide, dark and light themes
 - Settings and saved accounts open in a side panel while the game keeps running
@@ -21,7 +24,7 @@ An Electron-based game client developed for DarkOrbit. This repository contains 
 
 ## 📦 Install
 
-1. Run `Alternative Darkorbit Client Setup 1.2.0.exe` and follow the steps: accept the license, choose whether to install for yourself or for everyone on the computer, pick the folder. It creates a desktop and Start menu shortcut and can start the client when it finishes.
+1. Run `Alternative Darkorbit Client Setup 2.0.0.exe` and follow the steps: accept the license, choose whether to install for yourself or for everyone on the computer, pick the folder. It creates a desktop and Start menu shortcut and can start the client when it finishes.
 2. Log in to DarkOrbit as usual.
 
 Recommended settings (⚙️ in the toolbar):

@@ -1347,6 +1347,8 @@ ipcMain.on("settings:get-sync", (event) => {
   event.returnValue = settings;
 });
 
+ipcMain.handle("app:version", () => app.getVersion());
+
 ipcMain.handle("settings:get", () => {
   return settings;
 });

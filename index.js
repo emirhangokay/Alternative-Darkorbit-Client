@@ -765,9 +765,25 @@ const QOS_SCRIPT =
   "Add-Type -Name Qos -Namespace DoClient -MemberDefinition '" +
   "[StructLayout(LayoutKind.Sequential)] public struct S { public uint Version; public uint ControlMask; public uint StateMask; } " +
   '[DllImport("kernel32.dll")] public static extern bool SetProcessInformation(IntPtr h, int c, ref S s, int size); ' +
+  '[DllImport("kernel32.dll")] static extern bool GetSystemCpuSetInformation(IntPtr info, uint len, out uint ret, IntPtr proc, uint flags); ' +
+  '[DllImport("kernel32.dll")] static extern bool SetProcessDefaultCpuSets(IntPtr h, uint[] ids, uint count); ' +
   "public static bool Off(IntPtr h) { S s; s.Version = 1; s.StateMask = 0; " +
   "s.ControlMask = 5; if (SetProcessInformation(h, 4, ref s, 12)) return true; " +
-  "s.ControlMask = 1; return SetProcessInformation(h, 4, ref s, 12); }'; ";
+  "s.ControlMask = 1; return SetProcessInformation(h, 4, ref s, 12); } " +
+  // Ids of the performance cores, or null when every core is the same kind.
+  "public static uint[] Fast() { uint len; GetSystemCpuSetInformation(IntPtr.Zero, 0, out len, IntPtr.Zero, 0); " +
+  "if (len == 0) return null; IntPtr buf = Marshal.AllocHGlobal((int)len); try { " +
+  "if (!GetSystemCpuSetInformation(buf, len, out len, IntPtr.Zero, 0)) return null; " +
+  "var ids = new System.Collections.Generic.List<uint>(); var eff = new System.Collections.Generic.List<byte>(); " +
+  "byte max = 0; byte min = 255; int off = 0; " +
+  "while (off < len) { int size = Marshal.ReadInt32(buf, off); if (size <= 0) break; " +
+  "byte e = Marshal.ReadByte(buf, off + 18); ids.Add((uint)Marshal.ReadInt32(buf, off + 8)); eff.Add(e); " +
+  "if (e > max) max = e; if (e < min) min = e; off += size; } " +
+  "if (max == min) return null; var fast = new System.Collections.Generic.List<uint>(); " +
+  "for (int i = 0; i < ids.Count; i++) if (eff[i] == max) fast.Add(ids[i]); return fast.ToArray(); " +
+  "} finally { Marshal.FreeHGlobal(buf); } } " +
+  "public static bool Pin(IntPtr h) { uint[] fast = Fast(); if (fast == null || fast.Length == 0) return false; " +
+  "return SetProcessDefaultCpuSets(h, fast, (uint)fast.Length); }'; ";
 
 const TRIM_SCRIPT =
   "Add-Type -Name Mem -Namespace DoClient -MemberDefinition '" +
@@ -778,7 +794,16 @@ const disablePowerThrottling = () => {
   const fresh = allPids.filter((pid) => Number.isInteger(pid) && !qosPids.has(pid));
   if (!fresh.length) return;
   fresh.forEach((pid) => qosPids.add(pid));
-  runPowerShell(QOS_SCRIPT + forEachPid(fresh, "[DoClient.Qos]::Off"));
+  // Processors with fast and slow cores (Intel 12th gen and later): Windows is
+  // free to move Flash's one busy thread onto a slow core for a moment, which
+  // shows up in the game as a hitch. Flash and the graphics process are told to
+  // prefer the fast cores. On ordinary processors this does nothing.
+  const hot = fresh.filter((pid) => flashPids.includes(pid) || gpuPids.includes(pid));
+  runPowerShell(
+    QOS_SCRIPT +
+      forEachPid(fresh, "[DoClient.Qos]::Off") +
+      (hot.length ? " " + forEachPid(hot, "[DoClient.Qos]::Pin") : "")
+  );
 };
 let flashPids = [];
 let lastAutoRestart = 0;

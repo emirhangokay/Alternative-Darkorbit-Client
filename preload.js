@@ -87,140 +87,247 @@ const getKey = (input) =>
 const allowedTypes = ["text", "email", "search", "tel", "url"];
 const credentialFieldTypes = ["text", "email", "search", "tel", "url", "password"];
 
-let suggestionBox;
+// Dropdown of values typed into this field before. It is fixed to the viewport, follows
+// the field, filters as you type, and closes whenever the field loses focus.
+let suggestionBox = null;
 let activeInput = null;
+let activeOrigin = null;
+let activeKey = null;
+let allValues = [];
+let shownValues = [];
+let highlighted = -1;
+let focusToken = 0;
+
+const SUGGEST_CSS = `
+#ua-autofill-box {
+  all: initial;
+  position: fixed;
+  z-index: 2147483647;
+  display: none;
+  box-sizing: border-box;
+  max-height: 232px;
+  overflow-y: auto;
+  padding: 4px;
+  background: #121821;
+  border: 1px solid #263042;
+  border-radius: 10px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+  font: 13px "Segoe UI", system-ui, sans-serif;
+  color: #e6ebf5;
+  text-align: left;
+}
+#ua-autofill-box::-webkit-scrollbar { width: 8px; }
+#ua-autofill-box::-webkit-scrollbar-thumb { background: #2a3446; border: 2px solid #121821; border-radius: 4px; }
+#ua-autofill-box .ua-head {
+  padding: 6px 10px 4px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: #6f7b91;
+}
+#ua-autofill-box .ua-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 32px;
+  padding: 0 4px 0 10px;
+  border-radius: 7px;
+  cursor: pointer;
+}
+#ua-autofill-box .ua-row.on { background: rgba(77, 184, 255, 0.14); }
+#ua-autofill-box .ua-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+#ua-autofill-box .ua-del {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #6f7b91;
+  font-size: 16px;
+  line-height: 1;
+  visibility: hidden;
+}
+#ua-autofill-box .ua-row.on .ua-del { visibility: visible; }
+#ua-autofill-box .ua-del:hover { background: rgba(255, 107, 107, 0.15); color: #ff6b6b; }
+`;
 
 const ensureSuggestionBox = () => {
-  if (suggestionBox) return suggestionBox;
+  if (suggestionBox && suggestionBox.isConnected) return suggestionBox;
+  const root = document.body || document.documentElement;
+  if (!document.getElementById("ua-autofill-style")) {
+    const style = document.createElement("style");
+    style.id = "ua-autofill-style";
+    style.textContent = SUGGEST_CSS;
+    (document.head || root).appendChild(style);
+  }
   suggestionBox = document.createElement("div");
   suggestionBox.id = "ua-autofill-box";
-  Object.assign(suggestionBox.style, {
-    position: "absolute",
-    zIndex: "2147483647",
-    background: "rgba(10,16,28,0.95)",
-    border: "1px solid rgba(105,224,255,0.3)",
-    borderRadius: "8px",
-    boxShadow: "0 10px 30px rgba(0,0,0,0.35)",
-    padding: "4px 0",
-    minWidth: "120px",
-    maxWidth: "280px",
-    display: "none",
-    color: "#eaf0ff",
-    fontFamily: "Segoe UI, sans-serif",
-    fontSize: "12px",
-  });
-  document.body.appendChild(suggestionBox);
+  // Keep focus in the field while clicking inside the list.
+  suggestionBox.addEventListener("mousedown", (event) => event.preventDefault());
+  root.appendChild(suggestionBox);
   return suggestionBox;
 };
 
 const hideSuggestions = () => {
   if (suggestionBox) {
     suggestionBox.style.display = "none";
-    suggestionBox.innerHTML = "";
+    suggestionBox.textContent = "";
   }
   activeInput = null;
+  shownValues = [];
+  highlighted = -1;
 };
 
-const showSuggestions = (input, origin, key, values) => {
-  const box = ensureSuggestionBox();
-  if (!values || !values.length) {
+const positionSuggestions = () => {
+  if (!activeInput || !suggestionBox || suggestionBox.style.display === "none") return;
+  const rect = activeInput.getBoundingClientRect();
+  // Field scrolled out of view or hidden: close instead of floating in the open.
+  if (!activeInput.isConnected || rect.width === 0 || rect.bottom < 0 || rect.top > innerHeight) {
     hideSuggestions();
     return;
   }
-  activeInput = input;
-  const rect = input.getBoundingClientRect();
-  box.innerHTML = "";
-  values.forEach((val) => {
+  const box = suggestionBox;
+  box.style.width = `${Math.max(rect.width, 180)}px`;
+  const height = box.offsetHeight;
+  const below = innerHeight - rect.bottom;
+  const top = below < height + 6 && rect.top > below ? rect.top - height - 4 : rect.bottom + 4;
+  const left = Math.min(Math.max(4, rect.left), Math.max(4, innerWidth - box.offsetWidth - 4));
+  box.style.top = `${Math.round(top)}px`;
+  box.style.left = `${Math.round(left)}px`;
+};
+
+const pickSuggestion = (value) => {
+  const input = activeInput;
+  if (!input) return;
+  const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set;
+  setter.call(input, value);
+  input.dispatchEvent(new Event("input", { bubbles: true }));
+  input.dispatchEvent(new Event("change", { bubbles: true }));
+  hideSuggestions();
+};
+
+const highlight = (index) => {
+  highlighted = index;
+  suggestionBox.querySelectorAll(".ua-row").forEach((row, i) => row.classList.toggle("on", i === index));
+  const row = suggestionBox.querySelectorAll(".ua-row")[index];
+  if (row) row.scrollIntoView({ block: "nearest" });
+};
+
+const renderSuggestions = () => {
+  if (!activeInput) return;
+  const typed = (activeInput.value || "").trim().toLowerCase();
+  shownValues = allValues.filter((val) => {
+    const lower = String(val).toLowerCase();
+    return !typed || (lower.includes(typed) && lower !== typed);
+  });
+  const box = ensureSuggestionBox();
+  box.textContent = "";
+  highlighted = -1;
+  if (!shownValues.length) {
+    box.style.display = "none";
+    return;
+  }
+  const head = document.createElement("div");
+  head.className = "ua-head";
+  head.textContent = "Previously entered";
+  box.appendChild(head);
+  shownValues.forEach((val, index) => {
     const row = document.createElement("div");
-    Object.assign(row.style, {
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "space-between",
-      gap: "6px",
-      padding: "6px 10px",
-      cursor: "pointer",
-      borderBottom: "1px solid rgba(255,255,255,0.05)",
-    });
-    row.addEventListener("mouseenter", () => (row.style.background = "rgba(105,224,255,0.08)"));
-    row.addEventListener("mouseleave", () => (row.style.background = "transparent"));
+    row.className = "ua-row";
+    row.addEventListener("mouseenter", () => highlight(index));
+    row.addEventListener("click", () => pickSuggestion(val));
 
     const text = document.createElement("span");
+    text.className = "ua-text";
     text.textContent = val;
-    text.style.flex = "1";
-    text.style.overflow = "hidden";
-    text.style.textOverflow = "ellipsis";
-    text.style.whiteSpace = "nowrap";
 
-    const btn = document.createElement("button");
-    btn.textContent = "x";
-    Object.assign(btn.style, {
-      border: "1px solid rgba(105,224,255,0.25)",
-      background: "rgba(255,255,255,0.05)",
-      color: "#eaf0ff",
-      borderRadius: "6px",
-      width: "22px",
-      height: "22px",
-      cursor: "pointer",
-    });
-    btn.addEventListener("click", async (event) => {
+    const remove = document.createElement("span");
+    remove.className = "ua-del";
+    remove.textContent = "×";
+    remove.title = "Remove from this list";
+    remove.addEventListener("click", async (event) => {
       event.stopPropagation();
-      const next = await ipcRenderer.invoke("autofill:delete", origin, key, val);
-      if (Array.isArray(next) && next.length) {
-        showSuggestions(input, origin, key, next);
-      } else {
-        hideSuggestions();
-      }
+      const input = activeInput;
+      const next = await ipcRenderer.invoke("autofill:delete", activeOrigin, activeKey, val);
+      if (activeInput !== input) return;
+      allValues = Array.isArray(next) ? next : [];
+      renderSuggestions();
     });
 
-    row.addEventListener("click", () => {
-      input.value = val;
-      input.dispatchEvent(new Event("input", { bubbles: true }));
-      input.dispatchEvent(new Event("change", { bubbles: true }));
-      hideSuggestions();
-    });
-
-    row.appendChild(text);
-    row.appendChild(btn);
+    row.append(text, remove);
     box.appendChild(row);
   });
-
-  box.style.left = `${rect.left + window.scrollX}px`;
-  box.style.top = `${rect.bottom + window.scrollY + 2}px`;
-  box.style.minWidth = `${rect.width}px`;
   box.style.display = "block";
+  positionSuggestions();
+};
+
+const isAutofillField = (el) =>
+  el instanceof HTMLInputElement &&
+  allowedTypes.includes((el.getAttribute("type") || "text").toLowerCase()) &&
+  !el.disabled &&
+  !el.readOnly;
+
+const openSuggestions = async (input) => {
+  const token = ++focusToken;
+  const origin = location.origin;
+  const key = getKey(input);
+  const values = await ipcRenderer.invoke("autofill:get", origin, key);
+  // The field may have lost focus while we waited; never show a list for it then.
+  if (token !== focusToken || document.activeElement !== input) return;
+  activeInput = input;
+  activeOrigin = origin;
+  activeKey = key;
+  allValues = Array.isArray(values) ? values : [];
+  renderSuggestions();
 };
 
 const attachAutofill = () => {
-  const origin = location.origin;
-  const inputs = Array.from(document.querySelectorAll("input"));
-
-  inputs
-    .filter((el) => {
-      const type = (el.getAttribute("type") || "text").toLowerCase();
-      return allowedTypes.includes(type);
-    })
-    .forEach((input) => {
-      const key = getKey(input);
-
-      input.addEventListener("focus", async () => {
-        const values = await ipcRenderer.invoke("autofill:get", origin, key);
-        showSuggestions(input, origin, key, values);
-      });
-    });
-
-  document.addEventListener(
-    "click",
-    (event) => {
-      if (!suggestionBox) return;
-      if (suggestionBox.contains(event.target)) return;
-      if (activeInput && activeInput.contains(event.target)) return;
+  // Delegated, so fields added later (login pop-ups) work too.
+  document.addEventListener("focusin", (event) => {
+    if (isAutofillField(event.target)) openSuggestions(event.target);
+    else hideSuggestions();
+  }, true);
+  document.addEventListener("focusout", (event) => {
+    if (event.target === activeInput || !activeInput) {
+      focusToken++;
       hideSuggestions();
-    },
-    true
-  );
-
-  window.addEventListener("scroll", hideSuggestions, true);
-  window.addEventListener("resize", hideSuggestions);
+    }
+  }, true);
+  document.addEventListener("input", (event) => {
+    if (event.target === activeInput) renderSuggestions();
+  }, true);
+  document.addEventListener("keydown", (event) => {
+    if (event.target !== activeInput || !shownValues.length) return;
+    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      event.preventDefault();
+      const dir = event.key === "ArrowDown" ? 1 : -1;
+      highlight((highlighted + dir + shownValues.length) % shownValues.length);
+    } else if (event.key === "Enter" && highlighted >= 0) {
+      event.preventDefault();
+      pickSuggestion(shownValues[highlighted]);
+    } else if (event.key === "Escape" || event.key === "Tab") {
+      hideSuggestions();
+    }
+  }, true);
+  document.addEventListener("mousedown", (event) => {
+    if (!activeInput || !suggestionBox) return;
+    if (suggestionBox.contains(event.target) || event.target === activeInput) return;
+    hideSuggestions();
+  }, true);
+  window.addEventListener("scroll", positionSuggestions, true);
+  window.addEventListener("resize", positionSuggestions);
+  window.addEventListener("blur", hideSuggestions);
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) hideSuggestions();
+  });
 
   document.addEventListener(
     "submit",

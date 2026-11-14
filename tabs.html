@@ -1036,12 +1036,13 @@
           <div class="section-title">Flash memory</div>
           <div class="field">
             <label for="flash-memory-limit">Memory limit (MB)</label>
-            <input class="input" type="text" inputmode="numeric" id="flash-memory-limit" placeholder="1000" />
+            <input class="input" type="text" inputmode="numeric" id="flash-memory-limit" placeholder="1400" />
+            <span class="hint">The game needs about 800 MB once a map is loaded. Above this limit the game usually starts to stutter.</span>
           </div>
           <div class="row">
             <div class="row-text">
-              <strong>Restart Flash automatically</strong>
-              <span>The only real cure when the game itself gets slower as Flash's memory grows. Reloads the game once Flash is above the limit, but only after mouse and keyboard have been idle for 2 minutes, never while you play.</span>
+              <strong>Refresh Flash while I'm away</strong>
+              <span>Above the limit, reloads the game the moment you switch to another window for 20 seconds or leave mouse and keyboard alone for 90 seconds. Never while you play. Press Ctrl+Shift+R to do it yourself at a safe moment.</span>
             </div>
             <input class="switch" type="checkbox" id="flash-auto-restart" />
           </div>
@@ -1182,8 +1183,8 @@
         saveLogin: false,
         performanceMode: true,
         flashQuality: "default",
-        flashMemoryLimitMB: 1000,
-        flashAutoRestart: false,
+        flashMemoryLimitMB: 1400,
+        flashAutoRestart: true,
       };
 
       const state = { tabs: [], activeId: null };
@@ -1418,8 +1419,9 @@
         // The number that matters for in-game slowdown is how much Flash has
         // piled up in total, not how much of it currently sits in RAM.
         const used = stats.flashCommitMB;
-        flashMemBtn.textContent = `Flash ${used} MB`;
-        flashMemBtn.title = `Flash has ${used} MB allocated (${stats.flashMB} MB of it in RAM right now) and is using ${stats.flashCpu}% of one CPU core. Click to restart Flash.`;
+        const over = stats.limitMB > 0 && used >= stats.limitMB;
+        flashMemBtn.textContent = over ? `Flash ${used} MB · Ctrl+Shift+R` : `Flash ${used} MB`;
+        flashMemBtn.title = `Flash has ${used} MB allocated (${stats.flashMB} MB of it in RAM right now) and is using ${stats.flashCpu}% of one CPU core. Click or press Ctrl+Shift+R to refresh Flash.`;
         const limit = stats.limitMB > 0 ? stats.limitMB : 0;
         flashMemBtn.classList.toggle("warn", !!limit && used >= limit);
         flashMemBtn.classList.toggle("mid", !!limit && used >= limit * 0.75 && used < limit);
@@ -1691,7 +1693,7 @@
         saveLogin.checked = !!settings.saveLogin;
         gpuAcceleration.checked = settings.gpuAcceleration !== false;
         performanceMode.checked = settings.performanceMode !== false;
-        flashMemoryLimit.value = settings.flashMemoryLimitMB != null ? settings.flashMemoryLimitMB : 1000;
+        flashMemoryLimit.value = settings.flashMemoryLimitMB != null ? settings.flashMemoryLimitMB : 1400;
         flashQuality.value = settings.flashQuality || "default";
         flashAutoRestart.checked = !!settings.flashAutoRestart;
         useCustomUA.checked = !!settings.useCustomUA;

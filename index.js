@@ -132,8 +132,8 @@ settings = Object.assign(
     saveLogin: false,
     performanceMode: true,
     flashQuality: "default",
-    flashMemoryLimitMB: 1000,
-    flashAutoRestart: false,
+    flashMemoryLimitMB: 1400,
+    flashAutoRestart: true,
   },
   settings
 );
@@ -651,8 +651,14 @@ const createMainWindow = () => {
 
   mainWindow.loadFile(path.join(__dirname, "tabs.html"));
   mainWindow.on("resize", layoutActiveView);
-  mainWindow.on("focus", registerShortcuts);
-  mainWindow.on("blur", () => globalShortcut.unregisterAll());
+  mainWindow.on("focus", () => {
+    unfocusedSince = 0;
+    registerShortcuts();
+  });
+  mainWindow.on("blur", () => {
+    unfocusedSince = Date.now();
+    globalShortcut.unregisterAll();
+  });
   mainWindow.on("enter-full-screen", () => {
     isFullScreen = true;
     chromeHeight = 0;
@@ -713,6 +719,9 @@ const registerShortcuts = () => {
   safeRegister("CommandOrControl+Tab", () => moveActive(1));
   safeRegister("CommandOrControl+Shift+Tab", () => moveActive(-1));
   safeRegister("F11", toggleFullscreen);
+  safeRegister("CommandOrControl+Shift+R", () => {
+    if (restartFlash()) lastAutoRestart = Date.now();
+  });
 };
 
 // ---- Flash memory watchdog ----
@@ -812,6 +821,8 @@ let trimCooldown = 60000;
 let trimBusy = false;
 let perfTimer = null;
 let sleepBlockerId = null;
+// When the client window last stopped being the focused one (0 = focused).
+let unfocusedSince = 0;
 
 // A game left running must not be suspended by Windows going to sleep.
 const syncSleepBlocker = (flashRunning) => {
@@ -978,6 +989,19 @@ const restartFlash = () => {
   return true;
 };
 
+// Never refresh Flash in the middle of play. The player counts as away once
+// the client has been in the background (another window in front, or
+// minimised) for 20 seconds, or mouse and keyboard have been untouched for a
+// minute and a half.
+const playerIsAway = (now) => {
+  const inBackground = unfocusedSince > 0 && now - unfocusedSince >= 20000;
+  let idleSeconds = 0;
+  try {
+    idleSeconds = powerMonitor.getSystemIdleTime();
+  } catch (_err) {}
+  return inBackground || idleSeconds >= 90;
+};
+
 const perfTick = () => {
   if (!mainWindow || mainWindow.isDestroyed()) return;
   const stats = collectPerfStats();
@@ -1009,9 +1033,7 @@ const perfTick = () => {
     stats.limitMB > 0 &&
     stats.flashCommitMB >= stats.limitMB &&
     now - lastAutoRestart > 120000 &&
-    // never in the middle of play: only once mouse and keyboard have been
-    // untouched for two minutes
-    powerMonitor.getSystemIdleTime() >= 120
+    playerIsAway(now)
   ) {
     lastAutoRestart = now;
     restartFlash();

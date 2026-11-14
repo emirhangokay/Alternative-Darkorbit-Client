@@ -21,7 +21,7 @@ An Electron-based game client developed for DarkOrbit. This repository contains 
 
 ## 📦 Install
 
-1. Run `Alternative Darkorbit Client Setup.exe`. It installs for the current user and starts the client; no admin rights needed.
+1. Run `Alternative Darkorbit Client Setup 1.2.0.exe` and follow the steps: accept the license, choose whether to install for yourself or for everyone on the computer, pick the folder. It creates a desktop and Start menu shortcut and can start the client when it finishes.
 2. Log in to DarkOrbit as usual.
 
 Recommended settings (⚙️ in the toolbar):
@@ -84,3 +84,9 @@ Here are the main keyboard shortcuts used in the client (Windows/Linux: Ctrl, ma
 | Previous tab | Ctrl/Cmd + Shift + Tab |
 | Toggle fullscreen | F11 |
 | Refresh Flash (frees its memory, the game reloads) | Ctrl/Cmd + Shift + R |
+
+---
+
+## 📄 License
+
+MIT, see [LICENSE](LICENSE). This covers the client's own code; the bundled Flash Player plugin belongs to Adobe. DarkOrbit is a trademark of Bigpoint GmbH; this project is not affiliated with Bigpoint.

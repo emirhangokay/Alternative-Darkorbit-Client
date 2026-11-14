@@ -3,13 +3,21 @@ An Electron-based game client developed for DarkOrbit. This repository contains 
 
 ---
 
+## ⬇️ Download
+
+[![Download the latest release](https://img.shields.io/github/v/release/emirhangokay/Alternative-Darkorbit-Client?label=Download&style=for-the-badge&color=4DB8FF)](https://github.com/emirhangokay/Alternative-Darkorbit-Client/releases/latest)
+
+Get **`Alternative Darkorbit Client Setup <version>.exe`** from the [latest release](https://github.com/emirhangokay/Alternative-Darkorbit-Client/releases/latest) (Windows 10/11, 64-bit). Installing a new version over an old one keeps your settings and saved accounts.
+
+---
+
 ## ✨ Features
 
 See [CHANGELOG.md](CHANGELOG.md) for what changed in each release.
 
 
 - Tabs in the title bar, a toolbar you can hide, dark and light themes
-- Settings and saved accounts open in a side panel while the game keeps running
+- Settings and saved accounts slide in over the game while it keeps running; drag saved accounts to reorder them
 - Your own client name and icon: upload any picture (it is cropped and shrunk for you) or pick a rank icon
 - Flash performance boost:
   - forces GPU rendering and gives Flash a hardware `wmode` on pages that do not ask for one
@@ -24,7 +32,7 @@ See [CHANGELOG.md](CHANGELOG.md) for what changed in each release.
 
 ## 📦 Install
 
-1. Run `Alternative Darkorbit Client Setup 2.1.0.exe` and follow the steps: accept the license, choose whether to install for yourself or for everyone on the computer, pick the folder. It creates a desktop and Start menu shortcut and can start the client when it finishes.
+1. Download the installer from the [latest release](https://github.com/emirhangokay/Alternative-Darkorbit-Client/releases/latest) and run it. If Windows shows an "unknown publisher" warning, choose **More info → Run anyway**. Follow the steps: accept the license, choose whether to install for yourself or for everyone on the computer, pick the folder. It creates a desktop and Start menu shortcut and can start the client when it finishes.
 2. Log in to DarkOrbit as usual.
 
 Recommended settings (⚙️ in the toolbar):

@@ -1045,6 +1045,17 @@
             <input class="switch" type="checkbox" id="flash-force-direct" checked />
           </div>
           <div class="field" style="margin-top: 10px;">
+            <label for="flash-render-scale">Game resolution</label>
+            <select class="input" id="flash-render-scale">
+              <option value="100">100% (sharpest)</option>
+              <option value="85">85%</option>
+              <option value="75">75% (recommended if the game stutters)</option>
+              <option value="66">66%</option>
+              <option value="50">50% (fastest)</option>
+            </select>
+            <span class="hint">Flash draws the game on the processor, so fewer pixels means more FPS. The game is drawn smaller and stretched to fill the window: everything looks bigger and a little softer, and you see a bit less of the map. Applies on the next page load.</span>
+          </div>
+          <div class="field">
             <label for="flash-quality">Flash render quality</label>
             <select class="input" id="flash-quality">
               <option value="default">Game default</option>
@@ -1179,6 +1190,7 @@
       const flashAutoTrim = $("flash-auto-trim");
       const flashForceDirect = $("flash-force-direct");
       const flashQuality = $("flash-quality");
+      const flashRenderScale = $("flash-render-scale");
       const saveLogin = $("save-login");
       const clientNameInput = $("client-name");
       const iconPreview = $("icon-preview");
@@ -1216,6 +1228,7 @@
         lowDpiRender: false,
         flashForceDirect: true,
         flashQuality: "default",
+        flashRenderScale: 100,
         flashMemoryLimitMB: 1000,
         flashAutoTrim: true,
         flashAutoRestart: false,
@@ -1742,6 +1755,7 @@
         flashAutoTrim.checked = settings.flashAutoTrim !== false;
         flashForceDirect.checked = settings.flashForceDirect !== false;
         flashQuality.value = settings.flashQuality || "default";
+        flashRenderScale.value = String(settings.flashRenderScale || 100);
         flashAutoRestart.checked = !!settings.flashAutoRestart;
         useCustomUA.checked = !!settings.useCustomUA;
         customUAInput.value = settings.customUserAgent || "";
@@ -1770,6 +1784,7 @@
           flashAutoTrim: !!flashAutoTrim.checked,
           flashForceDirect: !!flashForceDirect.checked,
           flashQuality: flashQuality.value || "default",
+          flashRenderScale: parseInt(flashRenderScale.value, 10) || 100,
           // saving settings gives the GPU switches another chance after a driver update
           gpuSafeMode: false,
           flashAutoRestart: !!flashAutoRestart.checked,

@@ -138,6 +138,7 @@ settings = Object.assign(
     lowDpiRender: false,
     flashForceDirect: true,
     flashQuality: "default",
+    flashRenderScale: 100,
     flashMemoryLimitMB: 1000,
     flashAutoTrim: true,
     flashAutoRestart: false,

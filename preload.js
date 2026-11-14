@@ -21,7 +21,38 @@ const { ipcRenderer } = require("electron");
     forced.quality = pageSettings.flashQuality;
   }
   const names = Object.keys(forced);
-  if (!names.length) return;
+
+  // Game resolution: Flash draws the 2D game on the CPU, one pixel at a time,
+  // so its cost follows the size of the game area. Below 100% the Flash element
+  // is laid out smaller and stretched back to full size by the graphics card,
+  // exactly like running any game at a lower resolution.
+  const scalePct = Number(pageSettings.flashRenderScale);
+  const scale = scalePct >= 40 && scalePct < 100 ? scalePct / 100 : 1;
+  if (!names.length && scale === 1) return;
+
+  const scaledLength = (raw) => {
+    const match = /^\s*([\d.]+)\s*(%|px)?\s*$/.exec(raw || "");
+    if (!match) return null;
+    const value = parseFloat(match[1]) * scale;
+    return match[2] === "%" ? value + "%" : value + "px";
+  };
+
+  const applyScale = (el) => {
+    if (scale === 1 || el.__doScaled) return;
+    const rawWidth = el.style.width || el.getAttribute("width");
+    const rawHeight = el.style.height || el.getAttribute("height");
+    // leave banners and other small Flash alone; only the game is worth it
+    const px = (raw) => (/^\s*[\d.]+\s*(px)?\s*$/.test(raw || "") ? parseFloat(raw) : Infinity);
+    if (px(rawWidth) < 600 || px(rawHeight) < 400) return;
+    const width = scaledLength(rawWidth);
+    const height = scaledLength(rawHeight);
+    if (!width || !height) return;
+    el.__doScaled = true;
+    el.style.width = width;
+    el.style.height = height;
+    el.style.transformOrigin = "0 0";
+    el.style.transform = "scale(" + 1 / scale + ")";
+  };
 
   const looksLikeFlash = (el) => {
     const type = (el.getAttribute("type") || "").toLowerCase();
@@ -37,6 +68,7 @@ const { ipcRenderer } = require("electron");
 
   const fixElement = (el) => {
     if (!el || (el.tagName !== "EMBED" && el.tagName !== "OBJECT") || !looksLikeFlash(el)) return;
+    applyScale(el);
     names.forEach((name) => {
       const value = forced[name];
       if (el.tagName === "EMBED") {

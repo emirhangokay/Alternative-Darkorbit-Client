@@ -2,8 +2,8 @@ const { ipcRenderer } = require("electron");
 
 // ---- Start Flash with the fastest settings ----
 // Flash only renders through the graphics card (Stage3D, fast blitting) when
-// the page embeds it with wmode="direct". Many game pages ship "gpu", "opaque"
-// or "transparent" instead, which silently drops the game to CPU rendering.
+// the page embeds it with a hardware wmode. Pages that ship "opaque",
+// "transparent" or nothing at all silently drop the game to CPU rendering.
 // We correct the embed the moment the page inserts it, before Flash starts.
 // The optional quality override works the same way.
 (() => {
@@ -14,7 +14,7 @@ const { ipcRenderer } = require("electron");
   if (!pageSettings) return;
 
   const forced = {};
-  if (pageSettings.performanceMode !== false && pageSettings.flashForceDirect !== false) {
+  if (pageSettings.performanceMode !== false) {
     forced.wmode = "direct";
   }
   if (["low", "medium", "high"].includes(pageSettings.flashQuality)) {
@@ -22,37 +22,7 @@ const { ipcRenderer } = require("electron");
   }
   const names = Object.keys(forced);
 
-  // Game resolution: Flash draws the 2D game on the CPU, one pixel at a time,
-  // so its cost follows the size of the game area. Below 100% the Flash element
-  // is laid out smaller and stretched back to full size by the graphics card,
-  // exactly like running any game at a lower resolution.
-  const scalePct = Number(pageSettings.flashRenderScale);
-  const scale = scalePct >= 40 && scalePct < 100 ? scalePct / 100 : 1;
-  if (!names.length && scale === 1) return;
-
-  const scaledLength = (raw) => {
-    const match = /^\s*([\d.]+)\s*(%|px)?\s*$/.exec(raw || "");
-    if (!match) return null;
-    const value = parseFloat(match[1]) * scale;
-    return match[2] === "%" ? value + "%" : value + "px";
-  };
-
-  const applyScale = (el) => {
-    if (scale === 1 || el.__doScaled) return;
-    const rawWidth = el.style.width || el.getAttribute("width");
-    const rawHeight = el.style.height || el.getAttribute("height");
-    // leave banners and other small Flash alone; only the game is worth it
-    const px = (raw) => (/^\s*[\d.]+\s*(px)?\s*$/.test(raw || "") ? parseFloat(raw) : Infinity);
-    if (px(rawWidth) < 600 || px(rawHeight) < 400) return;
-    const width = scaledLength(rawWidth);
-    const height = scaledLength(rawHeight);
-    if (!width || !height) return;
-    el.__doScaled = true;
-    el.style.width = width;
-    el.style.height = height;
-    el.style.transformOrigin = "0 0";
-    el.style.transform = "scale(" + 1 / scale + ")";
-  };
+  if (!names.length) return;
 
   const looksLikeFlash = (el) => {
     const type = (el.getAttribute("type") || "").toLowerCase();
@@ -68,16 +38,19 @@ const { ipcRenderer } = require("electron");
 
   const fixElement = (el) => {
     if (!el || (el.tagName !== "EMBED" && el.tagName !== "OBJECT") || !looksLikeFlash(el)) return;
-    applyScale(el);
     names.forEach((name) => {
       const value = forced[name];
+      const param = el.tagName === "OBJECT" ? el.querySelector('param[name="' + name + '" i]') : null;
+      const current = (
+        (el.tagName === "EMBED" ? el.getAttribute(name) : param && param.getAttribute("value")) || ""
+      ).toLowerCase();
+      if (current === value) return;
+      // "gpu" is the page author's own choice of a hardware mode; keep it.
+      if (name === "wmode" && current === "gpu") return;
       if (el.tagName === "EMBED") {
-        if ((el.getAttribute(name) || "").toLowerCase() !== value) el.setAttribute(name, value);
-        return;
-      }
-      const param = el.querySelector('param[name="' + name + '" i]');
-      if (param) {
-        if ((param.getAttribute("value") || "").toLowerCase() !== value) param.setAttribute("value", value);
+        el.setAttribute(name, value);
+      } else if (param) {
+        param.setAttribute("value", value);
       } else {
         const added = document.createElement("param");
         added.setAttribute("name", name);
@@ -99,11 +72,10 @@ const { ipcRenderer } = require("electron");
   }).observe(document, { childList: true, subtree: true });
 })();
 
-// Expose API to close current tab from page scripts
-window.electronAPI = {
-  closeCurrentTab: () => {
-    ipcRenderer.send("tab:close-current");
-  }
+// A page calling window.close() (the game does on logout) closes its own tab,
+// never the whole client.
+window.close = () => {
+  ipcRenderer.send("tab:close-current");
 };
 
 const getKey = (input) =>
@@ -339,142 +311,6 @@ const applyCredentials = (username, password) => {
   return true;
 };
 
-const showAccountPicker = async () => {
-  let settings;
-  try {
-    settings = await ipcRenderer.invoke("settings:get");
-  } catch (_err) {
-    settings = null;
-  }
-  if (!settings || !settings.saveLogin) return;
-
-  const origin = location.origin;
-  if (!origin || origin === "null") return;
-
-  const accounts = await ipcRenderer.invoke("credentials:list", origin);
-  if (!accounts || !accounts.length) return;
-
-  const overlay = document.createElement("div");
-  overlay.id = "account-picker-overlay";
-  Object.assign(overlay.style, {
-    position: "fixed",
-    top: "0",
-    left: "0",
-    right: "0",
-    bottom: "0",
-    background: "rgba(0, 0, 0, 0.5)",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    zIndex: "9999",
-  });
-
-  const modal = document.createElement("div");
-  Object.assign(modal.style, {
-    background: "#1a1f2e",
-    border: "1px solid #2a3342",
-    borderRadius: "12px",
-    padding: "24px",
-    width: "340px",
-    maxHeight: "420px",
-    boxShadow: "0 20px 60px rgba(0, 0, 0, 0.6)",
-    display: "flex",
-    flexDirection: "column",
-    gap: "16px",
-    fontFamily: '"Inter", sans-serif',
-    color: "#f0f4f8",
-  });
-
-  const title = document.createElement("h3");
-  title.textContent = "Select Account";
-  Object.assign(title.style, {
-    margin: "0",
-    fontSize: "16px",
-    fontWeight: "600",
-  });
-
-  const list = document.createElement("div");
-  Object.assign(list.style, {
-    display: "flex",
-    flexDirection: "column",
-    gap: "8px",
-    overflowY: "auto",
-    maxHeight: "280px",
-  });
-
-  accounts.forEach((account) => {
-    const btn = document.createElement("button");
-    btn.textContent = account.username;
-    Object.assign(btn.style, {
-      padding: "12px 16px",
-      background: "#252d3d",
-      border: "1px solid #2a3342",
-      borderRadius: "8px",
-      color: "#f0f4f8",
-      cursor: "pointer",
-      fontSize: "13px",
-      fontWeight: "500",
-      textAlign: "left",
-      transition: "all 0.2s ease",
-    });
-
-    btn.addEventListener("mouseenter", () => {
-      btn.style.background = "#2a3342";
-      btn.style.borderColor = "#00d4ff";
-    });
-    btn.addEventListener("mouseleave", () => {
-      btn.style.background = "#252d3d";
-      btn.style.borderColor = "#2a3342";
-    });
-
-    btn.addEventListener("click", () => {
-      applyCredentials(account.username, account.password);
-      overlay.remove();
-    });
-
-    list.appendChild(btn);
-  });
-
-  const closeBtn = document.createElement("button");
-  closeBtn.textContent = "Cancel";
-  Object.assign(closeBtn.style, {
-    padding: "10px 16px",
-    background: "#1a1f2e",
-    border: "1px solid #2a3342",
-    borderRadius: "8px",
-    color: "#a0a9b8",
-    cursor: "pointer",
-    fontSize: "13px",
-    fontWeight: "500",
-    transition: "all 0.2s ease",
-  });
-
-  closeBtn.addEventListener("mouseenter", () => {
-    closeBtn.style.borderColor = "#00d4ff";
-    closeBtn.style.color = "#00d4ff";
-  });
-  closeBtn.addEventListener("mouseleave", () => {
-    closeBtn.style.borderColor = "#2a3342";
-    closeBtn.style.color = "#a0a9b8";
-  });
-
-  closeBtn.addEventListener("click", () => {
-    overlay.remove();
-  });
-
-  overlay.addEventListener("click", (e) => {
-    if (e.target === overlay) {
-      overlay.remove();
-    }
-  });
-
-  modal.appendChild(title);
-  modal.appendChild(list);
-  modal.appendChild(closeBtn);
-  overlay.appendChild(modal);
-  document.body.appendChild(overlay);
-};
-
 const captureLoginOnSubmit = async (event) => {
   let settings;
   try {
@@ -502,7 +338,6 @@ const captureLoginOnSubmit = async (event) => {
 
 window.addEventListener("DOMContentLoaded", () => {
   attachAutofill();
-  // showAccountPicker(); // Removed - only show from tab bar button
   document.addEventListener("submit", captureLoginOnSubmit, true);
 });
 
@@ -510,360 +345,6 @@ window.addEventListener("DOMContentLoaded", () => {
 ipcRenderer.on("credentials:apply", (_event, account) => {
   if (!account) return;
   applyCredentials(account.username, account.password);
-});
-
-// IPC listener for showing credentials manager modal
-ipcRenderer.on("show:credentials-modal", async (event, accounts) => {
-  let credentialsModalOverlay = document.getElementById("page-credentials-modal-overlay");
-  if (credentialsModalOverlay) {
-    credentialsModalOverlay.remove();
-  }
-
-  const origin = location.origin;
-  let editingAccount = null;
-
-  const overlay = document.createElement("div");
-  overlay.id = "page-credentials-modal-overlay";
-  Object.assign(overlay.style, {
-    position: "fixed",
-    top: "0",
-    left: "0",
-    right: "0",
-    bottom: "0",
-    background: "rgba(0, 0, 0, 0.5)",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    zIndex: "2147483647",
-  });
-
-  const modal = document.createElement("div");
-  Object.assign(modal.style, {
-    background: "#1a1f2e",
-    border: "1px solid #2a3342",
-    borderRadius: "12px",
-    padding: "24px",
-    width: "500px",
-    maxHeight: "420px",
-    display: "flex",
-    flexDirection: "column",
-    gap: "16px",
-    boxShadow: "0 20px 60px rgba(0, 0, 0, 0.5)",
-    fontFamily: '"Inter", sans-serif',
-    color: "#f0f4f8",
-  });
-
-  const header = document.createElement("div");
-  Object.assign(header.style, {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: "12px",
-  });
-
-  const title = document.createElement("h3");
-  title.textContent = "Saved Accounts";
-  Object.assign(title.style, {
-    margin: "0",
-    fontSize: "16px",
-    fontWeight: "600",
-  });
-
-  const closeBtn = document.createElement("button");
-  closeBtn.textContent = "✕";
-  Object.assign(closeBtn.style, {
-    background: "none",
-    border: "none",
-    color: "#a0a9b8",
-    cursor: "pointer",
-    fontSize: "20px",
-    padding: "0",
-    width: "28px",
-    height: "28px",
-  });
-
-  closeBtn.addEventListener("click", () => {
-    overlay.remove();
-  });
-
-  header.appendChild(title);
-  header.appendChild(closeBtn);
-
-  // List view container
-  const listView = document.createElement("div");
-  listView.id = "list-view";
-  Object.assign(listView.style, {
-    display: "flex",
-    flexDirection: "column",
-    gap: "12px",
-  });
-
-  // Edit form container
-  const editForm = document.createElement("div");
-  editForm.id = "edit-form";
-  Object.assign(editForm.style, {
-    display: "none",
-    flexDirection: "column",
-    gap: "12px",
-  });
-
-  const usernameInput = document.createElement("input");
-  usernameInput.type = "text";
-  usernameInput.placeholder = "Username";
-  Object.assign(usernameInput.style, {
-    padding: "8px 12px",
-    background: "#252d3d",
-    border: "1px solid #2a3342",
-    borderRadius: "6px",
-    color: "#f0f4f8",
-    fontSize: "13px",
-  });
-
-  const passwordInput = document.createElement("input");
-  passwordInput.type = "password";
-  passwordInput.placeholder = "Password";
-  Object.assign(passwordInput.style, {
-    padding: "8px 12px",
-    background: "#252d3d",
-    border: "1px solid #2a3342",
-    borderRadius: "6px",
-    color: "#f0f4f8",
-    fontSize: "13px",
-  });
-
-  const formActions = document.createElement("div");
-  Object.assign(formActions.style, {
-    display: "flex",
-    gap: "8px",
-  });
-
-  const cancelBtn = document.createElement("button");
-  cancelBtn.textContent = "Cancel";
-  Object.assign(cancelBtn.style, {
-    flex: "1",
-    padding: "8px 12px",
-    border: "1px solid #2a3342",
-    borderRadius: "6px",
-    background: "#252d3d",
-    color: "#f0f4f8",
-    cursor: "pointer",
-    fontSize: "12px",
-    fontWeight: "500",
-  });
-
-  const saveBtn = document.createElement("button");
-  saveBtn.textContent = "Save";
-  Object.assign(saveBtn.style, {
-    flex: "1",
-    padding: "8px 12px",
-    border: "1px solid #00d4ff",
-    borderRadius: "6px",
-    background: "#00d4ff",
-    color: "#0a101c",
-    cursor: "pointer",
-    fontSize: "12px",
-    fontWeight: "600",
-  });
-
-  cancelBtn.addEventListener("click", () => {
-    editForm.style.display = "none";
-    listView.style.display = "flex";
-    editingAccount = null;
-    usernameInput.value = "";
-    passwordInput.value = "";
-  });
-
-  saveBtn.addEventListener("click", async () => {
-    const username = usernameInput.value.trim();
-    const password = passwordInput.value.trim();
-    
-    if (!username || !password) {
-      alert("Username and password are required");
-      return;
-    }
-
-    // Delete old if editing
-    if (editingAccount) {
-      await ipcRenderer.invoke("credentials:delete", origin, editingAccount);
-    }
-
-    // Save new
-    await ipcRenderer.invoke("credentials:save", origin, { username, password });
-    
-    // Refresh modal
-    const newAccounts = await ipcRenderer.invoke("credentials:list", origin);
-    overlay.remove();
-    ipcRenderer.emit("show:credentials-modal", null, newAccounts);
-  });
-
-  formActions.appendChild(cancelBtn);
-  formActions.appendChild(saveBtn);
-  editForm.appendChild(usernameInput);
-  editForm.appendChild(passwordInput);
-  editForm.appendChild(formActions);
-
-  // Render accounts list
-  const renderList = () => {
-    listView.innerHTML = "";
-
-    if (!accounts || !accounts.length) {
-      const empty = document.createElement("div");
-      empty.textContent = "No saved accounts.";
-      Object.assign(empty.style, {
-        textAlign: "center",
-        color: "#a0a9b8",
-        padding: "24px 0",
-        fontSize: "13px",
-      });
-      listView.appendChild(empty);
-    } else {
-      const list = document.createElement("div");
-      Object.assign(list.style, {
-        display: "flex",
-        flexDirection: "column",
-        gap: "8px",
-        maxHeight: "200px",
-        overflowY: "auto",
-      });
-
-      accounts.forEach((account) => {
-        const item = document.createElement("div");
-        Object.assign(item.style, {
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          padding: "12px",
-          background: "#252d3d",
-          border: "1px solid #2a3342",
-          borderRadius: "8px",
-        });
-
-        const username = document.createElement("div");
-        username.textContent = account.username;
-        Object.assign(username.style, {
-          fontWeight: "600",
-          fontSize: "13px",
-          color: "#f0f4f8",
-        });
-
-        const actions = document.createElement("div");
-        Object.assign(actions.style, {
-          display: "flex",
-          gap: "6px",
-        });
-
-        const useBtn = document.createElement("button");
-        useBtn.textContent = "Use";
-        Object.assign(useBtn.style, {
-          padding: "4px 10px",
-          border: "1px solid #00d4ff",
-          background: "transparent",
-          color: "#00d4ff",
-          borderRadius: "4px",
-          cursor: "pointer",
-          fontSize: "11px",
-          fontWeight: "500",
-        });
-
-        useBtn.addEventListener("click", () => {
-          applyCredentials(account.username, account.password);
-          overlay.remove();
-        });
-
-        const editBtn = document.createElement("button");
-        editBtn.textContent = "Edit";
-        Object.assign(editBtn.style, {
-          padding: "4px 10px",
-          border: "1px solid #2a3342",
-          background: "transparent",
-          color: "#f0f4f8",
-          borderRadius: "4px",
-          cursor: "pointer",
-          fontSize: "11px",
-          fontWeight: "500",
-        });
-
-        editBtn.addEventListener("click", () => {
-          editingAccount = account.username;
-          usernameInput.value = account.username;
-          passwordInput.value = account.password;
-          listView.style.display = "none";
-          editForm.style.display = "flex";
-        });
-
-        const deleteBtn = document.createElement("button");
-        deleteBtn.textContent = "Delete";
-        Object.assign(deleteBtn.style, {
-          padding: "4px 10px",
-          border: "1px solid #ff4757",
-          background: "transparent",
-          color: "#ff4757",
-          borderRadius: "4px",
-          cursor: "pointer",
-          fontSize: "11px",
-          fontWeight: "500",
-        });
-
-        deleteBtn.addEventListener("click", async () => {
-          if (confirm(`Delete account "${account.username}"?`)) {
-            await ipcRenderer.invoke("credentials:delete", origin, account.username);
-            const newAccounts = await ipcRenderer.invoke("credentials:list", origin);
-            overlay.remove();
-            ipcRenderer.emit("show:credentials-modal", null, newAccounts);
-          }
-        });
-
-        actions.appendChild(useBtn);
-        actions.appendChild(editBtn);
-        actions.appendChild(deleteBtn);
-        item.appendChild(username);
-        item.appendChild(actions);
-        list.appendChild(item);
-      });
-
-      listView.appendChild(list);
-    }
-
-    // Add New Account button
-    const addBtn = document.createElement("button");
-    addBtn.textContent = "+ Add New Account";
-    Object.assign(addBtn.style, {
-      padding: "10px 16px",
-      border: "1px solid #00d4ff",
-      borderRadius: "8px",
-      background: "transparent",
-      color: "#00d4ff",
-      cursor: "pointer",
-      fontSize: "13px",
-      fontWeight: "600",
-      marginTop: "8px",
-    });
-
-    addBtn.addEventListener("click", () => {
-      editingAccount = null;
-      usernameInput.value = "";
-      passwordInput.value = "";
-      listView.style.display = "none";
-      editForm.style.display = "flex";
-    });
-
-    listView.appendChild(addBtn);
-  };
-
-  renderList();
-
-  modal.appendChild(header);
-  modal.appendChild(listView);
-  modal.appendChild(editForm);
-
-  overlay.appendChild(modal);
-  overlay.addEventListener("click", (e) => {
-    if (e.target === overlay) {
-      overlay.remove();
-    }
-  });
-
-  document.body.appendChild(overlay);
 });
 
 window.addEventListener(

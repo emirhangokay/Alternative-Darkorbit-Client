@@ -19,14 +19,6 @@
         --warning: #ffb020;
         --danger: #ff5263;
         --shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
-
-        /* legacy names still used by a few inline styles */
-        --bg-primary: var(--bg-0);
-        --bg-secondary: var(--bg-1);
-        --bg-tertiary: var(--bg-2);
-        --text-primary: var(--text);
-        --text-secondary: var(--muted);
-        --border-color: var(--line);
       }
 
       body.theme-light {
@@ -1025,37 +1017,12 @@
           <div class="row">
             <div class="row-text">
               <strong>Flash performance boost</strong>
-              <span>Forces GPU rendering, keeps full speed in the background and raises Flash priority.</span>
+              <span>Runs Flash on the graphics card, keeps full speed in the background and gives the game priority over other programs.</span>
             </div>
             <input class="switch" type="checkbox" id="performance-mode" checked />
           </div>
-          <div class="row">
-            <div class="row-text">
-              <strong>Render at 100% scale</strong>
-              <span>More FPS on displays scaled to 125% or 150%. Everything looks slightly smaller.</span>
-            </div>
-            <input class="switch" type="checkbox" id="low-dpi-render" />
-          </div>
-          <span class="hint">Changing these three restarts the client.</span>
-          <div class="row" style="margin-top: 8px;">
-            <div class="row-text">
-              <strong>Force direct GPU mode</strong>
-              <span>Makes game pages start Flash with wmode "direct" so it renders on the graphics card. Applies on the next page load.</span>
-            </div>
-            <input class="switch" type="checkbox" id="flash-force-direct" checked />
-          </div>
+          <span class="hint">Changing these two restarts the client.</span>
           <div class="field" style="margin-top: 10px;">
-            <label for="flash-render-scale">Game resolution</label>
-            <select class="input" id="flash-render-scale">
-              <option value="100">100% (sharpest)</option>
-              <option value="85">85%</option>
-              <option value="75">75% (recommended if the game stutters)</option>
-              <option value="66">66%</option>
-              <option value="50">50% (fastest)</option>
-            </select>
-            <span class="hint">Flash draws the game on the processor, so fewer pixels means more FPS. The game is drawn smaller and stretched to fill the window: everything looks bigger and a little softer, and you see a bit less of the map. Applies on the next page load.</span>
-          </div>
-          <div class="field">
             <label for="flash-quality">Flash render quality</label>
             <select class="input" id="flash-quality">
               <option value="default">Game default</option>
@@ -1070,13 +1037,6 @@
           <div class="field">
             <label for="flash-memory-limit">Memory limit (MB)</label>
             <input class="input" type="text" inputmode="numeric" id="flash-memory-limit" placeholder="1000" />
-          </div>
-          <div class="row">
-            <div class="row-text">
-              <strong>Free memory automatically</strong>
-              <span>When the computer is running low on RAM and Flash is above the limit, hands Flash's unused memory back to Windows. The game keeps running. Does nothing on a computer with plenty of free memory.</span>
-            </div>
-            <input class="switch" type="checkbox" id="flash-auto-trim" checked />
           </div>
           <div class="row">
             <div class="row-text">
@@ -1184,13 +1144,9 @@
       const customUAInput = $("custom-ua");
       const gpuAcceleration = $("gpu-acceleration");
       const performanceMode = $("performance-mode");
-      const lowDpiRender = $("low-dpi-render");
       const flashMemoryLimit = $("flash-memory-limit");
       const flashAutoRestart = $("flash-auto-restart");
-      const flashAutoTrim = $("flash-auto-trim");
-      const flashForceDirect = $("flash-force-direct");
       const flashQuality = $("flash-quality");
-      const flashRenderScale = $("flash-render-scale");
       const saveLogin = $("save-login");
       const clientNameInput = $("client-name");
       const iconPreview = $("icon-preview");
@@ -1225,12 +1181,8 @@
         theme: "dark",
         saveLogin: false,
         performanceMode: true,
-        lowDpiRender: false,
-        flashForceDirect: true,
         flashQuality: "default",
-        flashRenderScale: 100,
         flashMemoryLimitMB: 1000,
-        flashAutoTrim: true,
         flashAutoRestart: false,
       };
 
@@ -1248,7 +1200,6 @@
 
       const saveSettings = (settings) => {
         localStorage.setItem("do-settings", JSON.stringify(settings));
-        ipcRenderer.send("settings:save-file", settings);
       };
 
       const applyTheme = (theme) => {
@@ -1468,19 +1419,12 @@
         // piled up in total, not how much of it currently sits in RAM.
         const used = stats.flashCommitMB;
         flashMemBtn.textContent = `Flash ${used} MB`;
-        flashMemBtn.title = `Flash has ${used} MB allocated (${stats.flashMB} MB of it in RAM right now) and is using ${stats.flashCpu}% of one CPU core. Click for options.`;
+        flashMemBtn.title = `Flash has ${used} MB allocated (${stats.flashMB} MB of it in RAM right now) and is using ${stats.flashCpu}% of one CPU core. Click to restart Flash.`;
         const limit = stats.limitMB > 0 ? stats.limitMB : 0;
         flashMemBtn.classList.toggle("warn", !!limit && used >= limit);
         flashMemBtn.classList.toggle("mid", !!limit && used >= limit * 0.75 && used < limit);
       });
-      const freeFlashMemory = () => ipcRenderer.invoke("flash:trim");
-      flashMemBtn.addEventListener("click", () =>
-        popupMenu([
-          { label: "Hand unused memory back to Windows", click: freeFlashMemory },
-          { separator: true },
-          { label: "Restart Flash (reloads the game, fixes slowdown)…", click: restartFlash },
-        ])
-      );
+      flashMemBtn.addEventListener("click", restartFlash);
 
       // ---------- "more" menu ----------
       const clearCookies = async () => {
@@ -1497,12 +1441,9 @@
           { label: "Full screen", accelerator: "F11", click: () => ipcRenderer.invoke("window:toggle-fullscreen") },
           { label: "Reset zoom", accelerator: "Ctrl+0", click: () => ipcRenderer.invoke("zoom:reset") },
           { separator: true },
-          { label: "Hand Flash memory back to Windows", disabled: flashMemBtn.hidden, click: () => freeFlashMemory() },
-          { label: "Restart Flash…", disabled: flashMemBtn.hidden, click: restartFlash },
           { label: "Clear cookies and site data…", click: clearCookies },
           { separator: true },
           { label: "Show performance log", click: () => ipcRenderer.invoke("perf:open-log") },
-          { label: "View page source", click: () => ipcRenderer.invoke("tabs:view-source") },
           { label: "Developer tools", click: () => ipcRenderer.invoke("tabs:devtools") },
         ])
       );
@@ -1750,12 +1691,8 @@
         saveLogin.checked = !!settings.saveLogin;
         gpuAcceleration.checked = settings.gpuAcceleration !== false;
         performanceMode.checked = settings.performanceMode !== false;
-        lowDpiRender.checked = !!settings.lowDpiRender;
         flashMemoryLimit.value = settings.flashMemoryLimitMB != null ? settings.flashMemoryLimitMB : 1000;
-        flashAutoTrim.checked = settings.flashAutoTrim !== false;
-        flashForceDirect.checked = settings.flashForceDirect !== false;
         flashQuality.value = settings.flashQuality || "default";
-        flashRenderScale.value = String(settings.flashRenderScale || 100);
         flashAutoRestart.checked = !!settings.flashAutoRestart;
         useCustomUA.checked = !!settings.useCustomUA;
         customUAInput.value = settings.customUserAgent || "";
@@ -1779,12 +1716,8 @@
           gpuAcceleration: !!gpuAcceleration.checked,
           saveLogin: !!saveLogin.checked,
           performanceMode: !!performanceMode.checked,
-          lowDpiRender: !!lowDpiRender.checked,
           flashMemoryLimitMB: Math.max(0, parseInt(flashMemoryLimit.value, 10) || 0),
-          flashAutoTrim: !!flashAutoTrim.checked,
-          flashForceDirect: !!flashForceDirect.checked,
           flashQuality: flashQuality.value || "default",
-          flashRenderScale: parseInt(flashRenderScale.value, 10) || 100,
           // saving settings gives the GPU switches another chance after a driver update
           gpuSafeMode: false,
           flashAutoRestart: !!flashAutoRestart.checked,
@@ -1795,8 +1728,7 @@
 
         const needsRestart =
           newSettings.gpuAcceleration !== (oldSettings.gpuAcceleration !== false) ||
-          newSettings.performanceMode !== (oldSettings.performanceMode !== false) ||
-          newSettings.lowDpiRender !== !!oldSettings.lowDpiRender;
+          newSettings.performanceMode !== (oldSettings.performanceMode !== false);
 
         saveSettings(newSettings);
         ipcRenderer.send("settings:update", newSettings);

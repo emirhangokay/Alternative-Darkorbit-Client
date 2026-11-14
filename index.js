@@ -37,7 +37,6 @@ let chromeHeight = TAB_BAR_HEIGHT;
 let sidePanelWidth = 0;
 let pendingAutofill = new Map();
 let isFullScreen = false;
-let isModalOpen = false;
 const defaultZoom = 1;
 const getZoom = (tab) => {
   if (!tab || !tab.view || !tab.view.webContents) return defaultZoom;
@@ -96,9 +95,6 @@ const pluginPath = app.isPackaged
 
 app.commandLine.appendSwitch("ppapi-flash-path", pluginPath);
 app.commandLine.appendSwitch("ppapi-flash-version", "29.0.0.171");
-app.commandLine.appendSwitch("enable-autofill");
-app.commandLine.appendSwitch("enable-autofill-profile");
-app.commandLine.appendSwitch("enable-features", "AutofillServerCommunication");
 app.commandLine.appendSwitch("enable-pinch");
 
 // Load saved DNS settings and apply
@@ -135,12 +131,8 @@ settings = Object.assign(
     theme: "dark",
     saveLogin: false,
     performanceMode: true,
-    lowDpiRender: false,
-    flashForceDirect: true,
     flashQuality: "default",
-    flashRenderScale: 100,
     flashMemoryLimitMB: 1000,
-    flashAutoTrim: true,
     flashAutoRestart: false,
   },
   settings
@@ -236,11 +228,18 @@ try {
   // read-only profile or similar: Flash simply runs with its defaults
 }
 
-if (settings.lowDpiRender) {
-  // On 125%/150% scaled displays Flash has to draw 1.5-2.25x the pixels.
-  app.commandLine.appendSwitch("high-dpi-support", "1");
-  app.commandLine.appendSwitch("force-device-scale-factor", "1");
-}
+// settings that no longer exist, left behind by older versions
+[
+  "lowDpiRender",
+  "flashForceDirect",
+  "flashAutoTrim",
+  "flashRenderScale",
+  "dnsServer",
+  "customDns",
+  "autoLogin",
+].forEach((key) => {
+  delete settings[key];
+});
 
 Menu.setApplicationMenu(null);
 
@@ -431,18 +430,6 @@ const attachViewEvents = (tab) => {
     // Allow the page to close without showing confirmation dialog
     event.preventDefault();
   });
-
-  view.webContents.executeJavaScript(`
-    (function() {
-      const originalClose = window.close;
-      window.close = function() {
-        // Notify Electron to close only this tab
-        if (window.electronAPI && window.electronAPI.closeCurrentTab) {
-          window.electronAPI.closeCurrentTab();
-        }
-      };
-    })();
-  `).catch(() => {});
 
   view.webContents.on("context-menu", (event, params) => {
     const isFlashContext = (() => {
@@ -980,7 +967,6 @@ const perfTick = () => {
   // it is skipped unless less than a fifth of the system's memory is left.
   const memoryIsTight = os.freemem() < os.totalmem() * 0.2;
   if (
-    settings.flashAutoTrim !== false &&
     memoryIsTight &&
     stats.limitMB > 0 &&
     stats.flashMB >= stats.limitMB &&
@@ -1015,10 +1001,6 @@ const startPerfMonitor = () => {
 };
 
 ipcMain.handle("flash:restart", () => restartFlash());
-ipcMain.handle("flash:trim", () => {
-  collectPerfStats();
-  return trimFlashMemory();
-});
 
 ipcMain.handle("tabs:create", (_event, url) => createTab(url || DEFAULT_URL, true));
 ipcMain.handle("tabs:close-others", (_event, id) => {
@@ -1109,7 +1091,6 @@ ipcMain.on("tabs:reorder", (_event, { draggedId, targetId }) => {
     const temp = tabs[draggedIndex];
     tabs[draggedIndex] = tabs[targetIndex];
     tabs[targetIndex] = temp;
-    console.log(`Tab sırası değiştirildi: ${draggedId} <-> ${targetId}`);
     broadcastState();
   }
 });
@@ -1168,10 +1149,6 @@ ipcMain.handle("autofill:delete", (_e, origin, key, value) => {
   }
   writeAutofill(store);
   return next;
-});
-ipcMain.handle("autofill:clear", () => {
-  pendingAutofill.clear();
-  writeAutofill({});
 });
 
 // Helper to extract base domain (e.g., darkorbit.com from tr5.darkorbit.com)
@@ -1234,30 +1211,6 @@ ipcMain.handle("credentials:delete", (_e, origin, username) => {
   return true;
 });
 
-// Handle show credentials modal in active page
-ipcMain.on("show-credentials-modal", (_e, accounts) => {
-  const tab = findTab(activeTabId);
-  if (tab && tab.view && tab.view.webContents) {
-    tab.view.webContents.send("show:credentials-modal", accounts || []);
-  }
-});
-ipcMain.handle("tabs:view-source", () => {
-  const tab = findTab(activeTabId);
-  if (tab) {
-    const url = tab.view.webContents.getURL();
-    createTab(`view-source:${url}`, true);
-  }
-});
-ipcMain.handle("tabs:inspect-element", (_event, coords) => {
-  const tab = findTab(activeTabId);
-  if (tab && tab.view && tab.view.webContents) {
-    try {
-      tab.view.webContents.inspectElement(coords.x - 0, coords.y - TAB_BAR_HEIGHT);
-    } catch (err) {
-      console.log("DevTools açılırken hata:", err);
-    }
-  }
-});
 ipcMain.handle("cookies:clear", async () => {
   try {
     await session.fromPartition(SESSION_PARTITION).clearStorageData();
@@ -1285,16 +1238,6 @@ ipcMain.handle("dialog:confirm", async (_e, { message, detail }) => {
     detail: detail || undefined,
   });
   return response === 0;
-});
-ipcMain.handle("dialog:info", async (_e, { message }) => {
-  if (!mainWindow || mainWindow.isDestroyed()) return;
-  await dialog.showMessageBox(mainWindow, {
-    type: "info",
-    buttons: ["OK"],
-    noLink: true,
-    title: app.getName(),
-    message: message || "",
-  });
 });
 ipcMain.handle("window:toggle-fullscreen", () => {
   toggleFullscreen();
@@ -1324,95 +1267,34 @@ ipcMain.on("window:toggle-maximize", () => {
     mainWindow.maximize();
   }
 });
-ipcMain.on("modal:open", () => {
-  isModalOpen = true;
-  const activeTab = tabs.find((t) => t.id === activeTabId);
-  if (activeTab && activeTab.view && mainWindow) {
-    // BrowserView'u gizle - bounds'unu sıfıra set et
-    activeTab.view.setBounds({
-      x: 0,
-      y: mainWindow.getContentSize()[1],
-      width: 0,
-      height: 0,
-    });
-  }
-});
-ipcMain.on("modal:close", () => {
-  isModalOpen = false;
-  const activeTab = tabs.find((t) => t.id === activeTabId);
-  if (activeTab && activeTab.view) {
-    // Restore BrowserView
-    layoutActiveView();
-  }
-});
 ipcMain.on("settings:update", (_event, newSettings) => {
-  // Merge and persist the new settings in-memory
-  try {
-    // Update runtime settings object
-    const previousUA = JSON.stringify([settings.useCustomUA, settings.customUserAgent]);
-    settings = Object.assign(settings || {}, newSettings || {});
-    const uaChanged = previousUA !== JSON.stringify([settings.useCustomUA, settings.customUserAgent]);
+  const previousUA = JSON.stringify([settings.useCustomUA, settings.customUserAgent]);
+  settings = Object.assign(settings || {}, newSettings || {});
+  const uaChanged = previousUA !== JSON.stringify([settings.useCustomUA, settings.customUserAgent]);
 
-    // DNS handling (maintained for backward compatibility)
-    let dnsAddress = "default";
-    switch (settings.dnsServer) {
-      case "cloudflare":
-        dnsAddress = "1.1.1.1 (Cloudflare)";
-        break;
-      case "google":
-        dnsAddress = "8.8.8.8 (Google)";
-        break;
-      case "quad9":
-        dnsAddress = "9.9.9.9 (Quad9)";
-        break;
-      case "custom":
-        dnsAddress = settings.customDns || "default";
-        break;
-      default:
-        dnsAddress = "Default (automatic)";
-    }
-
-    console.log(`Settings updated. DNS: ${dnsAddress}`);
-
-    // Log and apply the effective User Agent
-    try {
-      const sampleUA = pickUserAgent(tabs[0]?.url || "");
-      console.log("Applying User Agent for tabs:", sampleUA);
-    } catch (_) {}
-
-    // Apply user agent changes and reload all tabs so new UA takes effect
+  // Only a user agent change needs a reload; never kick the player out of the
+  // game for renaming the client or switching the theme.
+  if (uaChanged) {
     tabs.forEach((tab) => {
-      if (tab.view && tab.view.webContents) {
-        try {
-          const ua = pickUserAgent(tab.url || "");
-          tab.view.webContents.setUserAgent(ua);
-        } catch (_) {}
-        // Only a user agent change needs a reload; never kick the player out
-        // of the game for renaming the client or switching the theme.
-        if (uaChanged) tab.view.webContents.reload();
-      }
+      if (!tab.view || !tab.view.webContents) return;
+      try {
+        tab.view.webContents.setUserAgent(pickUserAgent(tab.url || ""));
+      } catch (_err) {}
+      tab.view.webContents.reload();
     });
+  }
 
-    // Persist merged settings to disk so they survive restarts
-    try {
-      fs.writeFileSync(SETTINGS_FILE, JSON.stringify(settings, null, 2), "utf8");
-      console.log("Settings persisted to file after update.");
-    } catch (err) {
-      console.error("Failed to persist settings to file:", err);
-    }
-
-    // Notify renderer(s) about updated settings so UI and localStorage can sync
-    try {
-      if (mainWindow && mainWindow.webContents) {
-        mainWindow.webContents.send("settings:updated", settings);
-      }
-    } catch (_err) {}
+  try {
+    fs.writeFileSync(SETTINGS_FILE, JSON.stringify(settings, null, 2), "utf8");
   } catch (err) {
-    console.error("Error applying settings:", err);
+    console.error("Failed to save settings:", err);
+  }
+
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send("settings:updated", settings);
   }
 });
 
-// Expose a simple handler so renderer can retrieve the authoritative settings
 // Page preload needs the settings before the page starts building its DOM.
 ipcMain.on("settings:get-sync", (event) => {
   event.returnValue = settings;
@@ -1423,19 +1305,8 @@ ipcMain.handle("settings:get", () => {
 });
 
 ipcMain.on("app:restart", () => {
-  console.log("Application is restarting...");
   app.relaunch();
   app.exit(0);
-});
-
-ipcMain.on("settings:save-file", (_event, settings) => {
-  // Save settings to file
-  try {
-    fs.writeFileSync(SETTINGS_FILE, JSON.stringify(settings, null, 2), "utf8");
-    console.log("Settings saved to file:", settings);
-  } catch (err) {
-    console.error("Failed to write settings to file:", err);
-  }
 });
 
 ipcMain.on("ranks:list", (event) => {

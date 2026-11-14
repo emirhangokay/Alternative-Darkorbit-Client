@@ -1,6 +1,6 @@
 {
   "name": "do-client",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Alternative Darkorbit Client",
   "main": "index.js",
   "scripts": {
@@ -16,6 +16,15 @@
   },
   "build": {
     "appId": "com.do-client.app",
+    "productName": "Alternative Darkorbit Client",
+    "files": [
+      "index.js",
+      "preload.js",
+      "tabs.html",
+      "icon.ico",
+      "ranks/*.png",
+      "package.json"
+    ],
     "win": {
       "target": "nsis",
       "icon": "icon.ico",
@@ -26,7 +35,6 @@
     "nsis": {
       "artifactName": "Alternative Darkorbit Client Setup.${ext}",
       "uninstallDisplayName": "Uninstall"
-    },
-    "productName": "Alternative Darkorbit Client"
+    }
   }
 }

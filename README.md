@@ -19,7 +19,24 @@ An Electron-based game client developed for DarkOrbit. This repository contains 
 
 ---
 
-## 🚀 Quick Start
+## 📦 Install
+
+1. Run `Alternative Darkorbit Client Setup.exe`. It installs for the current user and starts the client; no admin rights needed.
+2. Log in to DarkOrbit as usual.
+
+Recommended settings (⚙️ in the toolbar):
+
+- **Flash performance boost**: on
+- **Memory limit**: 1400 MB
+- **Refresh Flash while I’m away**: on
+
+Why the last one matters: DarkOrbit’s Flash client piles up memory while it runs and, after roughly half an hour, starts to stutter. Only reloading the game clears that. The client does it for you when Flash is over the limit and you have switched to another window for 20 seconds or left mouse and keyboard alone for 90 seconds. You can also press **Ctrl+Shift+R** at a safe moment.
+
+If a session still gets slow, open ⋮ → **Show performance log** and keep the file; it records Flash’s memory and CPU every few seconds.
+
+---
+
+## 🚀 Quick Start (development)
 
 Requirements:
 

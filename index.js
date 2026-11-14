@@ -10,6 +10,7 @@
   powerMonitor,
   screen,
   session,
+  shell,
 } = require("electron");
 const fs = require("fs");
 const os = require("os");
@@ -822,6 +823,14 @@ const collectPerfStats = () => {
   let flashCommitKB = 0;
   let totalKB = 0;
   let cpu = 0;
+  let flashCpu = 0;
+  let gpuCpu = 0;
+  let tabCpu = 0;
+  let activePid = 0;
+  try {
+    const active = findTab(activeTabId);
+    if (active) activePid = active.view.webContents.getOSProcessId();
+  } catch (_err) {}
   const pids = [];
   allPids = metrics.map((m) => m.pid);
   gpuPids = metrics.filter((m) => /gpu/i.test(m.type || "")).map((m) => m.pid);
@@ -831,8 +840,12 @@ const collectPerfStats = () => {
     // privateBytes = everything Flash has allocated, including what was paged out.
     const kb = mem.workingSetSize || 0;
     totalKB += kb;
-    cpu += (m.cpu && m.cpu.percentCPUUsage) || 0;
+    const share = (m.cpu && m.cpu.percentCPUUsage) || 0;
+    cpu += share;
+    if (/gpu/i.test(m.type || "")) gpuCpu += share;
+    if (m.pid === activePid) tabCpu += share;
     if (isFlashProcess(m)) {
+      flashCpu += share;
       flashKB += kb;
       flashCommitKB += mem.privateBytes || kb;
       pids.push(m.pid);
@@ -844,10 +857,72 @@ const collectPerfStats = () => {
     flashCommitMB: Math.round(flashCommitKB / 1024),
     totalMB: Math.round(totalKB / 1024),
     cpu: Math.round(cpu),
+    // Electron reports CPU as a share of all cores; these are scaled so that
+    // 100 means "one core fully busy". Flash's game loop runs on a single
+    // thread, so a Flash value near 100 means the game itself is the limit.
+    flashCpu: Math.round(flashCpu * CORE_COUNT),
+    gpuCpu: Math.round(gpuCpu * CORE_COUNT),
+    tabCpu: Math.round(tabCpu * CORE_COUNT),
     flashRunning: pids.length > 0,
     limitMB: Number(settings.flashMemoryLimitMB) || 0,
   };
 };
+
+// ---- Performance log ----
+// One line every few seconds while a game is running, so a slowdown can be
+// looked at afterwards instead of guessed at: did Flash's memory grow, was
+// Flash's thread maxed out, was the graphics process busy, or none of those
+// (which points at the game server or the network). The previous session is
+// kept next to the current one.
+const PERF_LOG = path.join(app.getPath("userData"), "performance-log.csv");
+const PERF_LOG_PREVIOUS = path.join(app.getPath("userData"), "performance-log.previous.csv");
+const CORE_COUNT = Math.max(1, os.cpus().length);
+let perfLogReady = false;
+let flashSince = 0;
+
+const startPerfLog = () => {
+  try {
+    if (fs.existsSync(PERF_LOG)) fs.renameSync(PERF_LOG, PERF_LOG_PREVIOUS);
+  } catch (_err) {}
+  try {
+    fs.writeFileSync(
+      PERF_LOG,
+      "time,minutes_in_game,flash_allocated_mb,flash_ram_mb,flash_cpu_pct_of_core,gpu_cpu_pct_of_core,tab_cpu_pct_of_core,client_cpu_pct_total,window_focused,tabs,system_free_mb\r\n",
+      "utf8"
+    );
+    perfLogReady = true;
+  } catch (_err) {
+    perfLogReady = false;
+  }
+};
+
+const writePerfLog = (stats) => {
+  if (!perfLogReady) return;
+  if (!stats.flashRunning) {
+    flashSince = 0;
+    return;
+  }
+  const now = Date.now();
+  if (!flashSince) flashSince = now;
+  const line = [
+    new Date(now).toISOString(),
+    ((now - flashSince) / 60000).toFixed(1),
+    stats.flashCommitMB,
+    stats.flashMB,
+    stats.flashCpu,
+    stats.gpuCpu,
+    stats.tabCpu,
+    stats.cpu,
+    mainWindow && !mainWindow.isDestroyed() && mainWindow.isFocused() ? 1 : 0,
+    tabs.length,
+    Math.round(os.freemem() / 1048576),
+  ].join(",");
+  fs.appendFile(PERF_LOG, line + "\r\n", () => {});
+};
+
+ipcMain.handle("perf:open-log", () => {
+  shell.showItemInFolder(PERF_LOG);
+});
 
 const boostFlashPriority = () => {
   if (settings.performanceMode === false) return;
@@ -897,6 +972,7 @@ const perfTick = () => {
   boostFlashPriority();
   disablePowerThrottling();
   syncSleepBlocker(stats.flashRunning);
+  writePerfLog(stats);
   const now = Date.now();
   // Trimming only helps a computer that is actually short on RAM. With plenty
   // free it frees nothing useful and just makes Flash fetch its pages back, so
@@ -932,6 +1008,7 @@ const perfTick = () => {
 };
 
 const startPerfMonitor = () => {
+  startPerfLog();
   if (perfTimer) clearInterval(perfTimer);
   perfTimer = setInterval(perfTick, PERF_INTERVAL_MS);
 };

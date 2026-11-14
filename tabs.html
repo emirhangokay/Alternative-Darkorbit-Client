@@ -1455,7 +1455,7 @@
         // piled up in total, not how much of it currently sits in RAM.
         const used = stats.flashCommitMB;
         flashMemBtn.textContent = `Flash ${used} MB`;
-        flashMemBtn.title = `Flash has ${used} MB allocated (${stats.flashMB} MB of it in RAM right now). Click for options.`;
+        flashMemBtn.title = `Flash has ${used} MB allocated (${stats.flashMB} MB of it in RAM right now) and is using ${stats.flashCpu}% of one CPU core. Click for options.`;
         const limit = stats.limitMB > 0 ? stats.limitMB : 0;
         flashMemBtn.classList.toggle("warn", !!limit && used >= limit);
         flashMemBtn.classList.toggle("mid", !!limit && used >= limit * 0.75 && used < limit);
@@ -1488,6 +1488,7 @@
           { label: "Restart Flash…", disabled: flashMemBtn.hidden, click: restartFlash },
           { label: "Clear cookies and site data…", click: clearCookies },
           { separator: true },
+          { label: "Show performance log", click: () => ipcRenderer.invoke("perf:open-log") },
           { label: "View page source", click: () => ipcRenderer.invoke("tabs:view-source") },
           { label: "Developer tools", click: () => ipcRenderer.invoke("tabs:devtools") },
         ])

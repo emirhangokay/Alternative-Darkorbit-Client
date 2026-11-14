@@ -7,7 +7,7 @@ An Electron-based game client developed for DarkOrbit. This repository contains 
 
 [![Download the latest release](https://img.shields.io/github/v/release/emirhangokay/Alternative-Darkorbit-Client?label=Download&style=for-the-badge&color=4DB8FF)](https://github.com/emirhangokay/Alternative-Darkorbit-Client/releases/latest)
 
-Get **`Alternative Darkorbit Client Setup <version>.exe`** from the [latest release](https://github.com/emirhangokay/Alternative-Darkorbit-Client/releases/latest) (Windows 10/11, 64-bit). Installing a new version over an old one keeps your settings and saved accounts.
+Get **`Alternative Darkorbit Client`** from the [latest release](https://github.com/emirhangokay/Alternative-Darkorbit-Client/releases/latest) (Windows 10/11, 64-bit). Installing a new version over an old one keeps your settings and saved accounts.
 
 ---
 

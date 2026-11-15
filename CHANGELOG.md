@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.4.0
+
+### What's new
+- **Flash starts in Low quality:** the quality you see in Flash's right-click menu now starts on Low instead of High, so every frame is cheaper to draw. Change it any time in ⚙️ → Flash render quality (Low, Medium, High, or let the game decide).
+
 ## 2.3.0
 
 ### What's new

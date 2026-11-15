@@ -1148,12 +1148,12 @@
           <div class="field" style="margin-top: 10px;">
             <label for="flash-quality">Flash render quality</label>
             <select class="input" id="flash-quality">
-              <option value="default">Game default</option>
-              <option value="high">High</option>
+              <option value="low">Low (fastest, default)</option>
               <option value="medium">Medium</option>
-              <option value="low">Low (fastest)</option>
+              <option value="high">High</option>
+              <option value="default">Let the game decide</option>
             </select>
-            <span class="hint">Lower quality means less work per frame on weak computers. Applies on the next page load; a game may still override it from its own settings.</span>
+            <span class="hint">Flash starts in this quality (the same setting as Flash's right-click menu). Low skips edge smoothing, so every frame is cheaper. Applies on the next page load.</span>
           </div>
 
           <div class="section-title">Flash memory</div>
@@ -1307,7 +1307,7 @@
         theme: "dark",
         saveLogin: false,
         performanceMode: true,
-        flashQuality: "default",
+        flashQuality: "low",
         flashMemoryLimitMB: 1400,
         flashAutoRestart: true,
       };
@@ -1861,7 +1861,7 @@
         gpuAcceleration.checked = settings.gpuAcceleration !== false;
         performanceMode.checked = settings.performanceMode !== false;
         flashMemoryLimit.value = settings.flashMemoryLimitMB != null ? settings.flashMemoryLimitMB : 1400;
-        flashQuality.value = settings.flashQuality || "default";
+        flashQuality.value = settings.flashQuality || "low";
         flashAutoRestart.checked = !!settings.flashAutoRestart;
         useCustomUA.checked = !!settings.useCustomUA;
         customUAInput.value = settings.customUserAgent || "";
@@ -1886,7 +1886,7 @@
           saveLogin: !!saveLogin.checked,
           performanceMode: !!performanceMode.checked,
           flashMemoryLimitMB: Math.max(0, parseInt(flashMemoryLimit.value, 10) || 0),
-          flashQuality: flashQuality.value || "default",
+          flashQuality: flashQuality.value || "low",
           // saving settings gives the GPU switches another chance after a driver update
           gpuSafeMode: false,
           flashAutoRestart: !!flashAutoRestart.checked,

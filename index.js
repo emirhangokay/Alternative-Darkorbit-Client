@@ -130,7 +130,7 @@ settings = Object.assign(
     theme: "dark",
     saveLogin: false,
     performanceMode: true,
-    flashQuality: "default",
+    flashQuality: "low",
     flashMemoryLimitMB: 1400,
     flashAutoRestart: true,
   },
@@ -239,6 +239,16 @@ try {
 ].forEach((key) => {
   delete settings[key];
 });
+
+// Flash used to start on the game's own quality (High). Low is the default now; move
+// everyone still on the old default once, and respect any choice made after that.
+if (!settings.flashQualityLowDefault) {
+  if (!settings.flashQuality || settings.flashQuality === "default") settings.flashQuality = "low";
+  settings.flashQualityLowDefault = true;
+  try {
+    fs.writeFileSync(SETTINGS_FILE, JSON.stringify(settings, null, 2), "utf8");
+  } catch (_err) {}
+}
 
 Menu.setApplicationMenu(null);
 

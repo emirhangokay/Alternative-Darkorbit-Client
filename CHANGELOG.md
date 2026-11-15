@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.3.0
+
+### What's new
+- **Updates ask first:** when a new version is out, the client shows a pop-up when it starts. **Update now** downloads and installs it, then reopens the client. **Later** changes nothing: nothing is downloaded or installed, and an **Update x.y.z available** button stays at the top for when you are ready.
+- **Check for updates** in the ⋮ menu.
+
 ## 2.2.0
 
 ### Installation

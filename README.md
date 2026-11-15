@@ -1,4 +1,4 @@
-# Alternative Darkorbit Client 2.2
+# Alternative Darkorbit Client 2.3
 An Electron-based game client developed for DarkOrbit. This repository contains the application’s source code, user interface, and configuration files.
 
 ---
@@ -9,7 +9,7 @@ An Electron-based game client developed for DarkOrbit. This repository contains 
 
 Get **`Alternative Darkorbit Client`** from the [latest release](https://github.com/emirhangokay/Alternative-Darkorbit-Client/releases/latest) (Windows 10/11, 64-bit). Installing a new version over an old one keeps your settings and saved accounts.
 
-From 2.2.0 on the client updates itself: it downloads a new version in the background and installs it when you close the client, keeping your settings and saved accounts. When an update is ready, an **Update to x.y.z** button appears next to the window buttons if you want to restart right away. (Coming from 2.1.0 or older? Install 2.2.0 by hand once.)
+The client tells you when a new version is out. When it starts, it checks GitHub and, if there is an update, asks whether to install it. **Update now** downloads it and restarts the client (the game reloads); **Later** changes nothing, and an **Update x.y.z available** button stays at the top so you can update whenever you like. You can also check yourself from ⋮ → **Check for updates**. Your settings and saved accounts are kept. (Coming from 2.1.0 or older? Install the latest version by hand once.)
 
 ---
 

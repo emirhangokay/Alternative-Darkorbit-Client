@@ -1555,31 +1555,27 @@
         if (ok) ipcRenderer.invoke("flash:restart");
       };
 
-      // ---------- automatic updates ----------
+      // ---------- updates ----------
+      // Shown only when a new version exists (the player chose Later) or is downloading.
       const updateBtn = $("update-btn");
       let updateState = { state: "idle" };
       const renderUpdate = (next) => {
         updateState = next || { state: "idle" };
         const { state, version, percent } = updateState;
-        updateBtn.hidden = state !== "downloading" && state !== "ready";
-        updateBtn.classList.toggle("ready", state === "ready");
-        if (state === "downloading") {
-          updateBtn.textContent = `Downloading ${version} · ${percent || 0}%`;
-          updateBtn.title = "A new version is downloading in the background.";
-        } else if (state === "ready") {
-          updateBtn.textContent = `Update to ${version}`;
-          updateBtn.title = "Installs when you close the client. Click to restart and install now.";
+        updateBtn.hidden = state !== "available" && state !== "downloading";
+        updateBtn.classList.toggle("ready", state === "available");
+        if (state === "available") {
+          updateBtn.textContent = `Update ${version} available`;
+          updateBtn.title = "Click to update. The client restarts and the game reloads.";
+        } else if (state === "downloading") {
+          updateBtn.textContent = `Updating to ${version} · ${percent || 0}%`;
+          updateBtn.title = "The client restarts when the download finishes.";
         }
       };
       ipcRenderer.on("update:state", (_event, next) => renderUpdate(next));
       ipcRenderer.invoke("update:state").then(renderUpdate);
-      updateBtn.addEventListener("click", async () => {
-        if (updateState.state !== "ready") return;
-        const ok = await confirmDialog(
-          `Restart now to install version ${updateState.version}?`,
-          "The game closes and the client opens again on the new version. If you skip this, the update installs when you close the client."
-        );
-        if (ok) ipcRenderer.invoke("update:install");
+      updateBtn.addEventListener("click", () => {
+        if (updateState.state === "available") ipcRenderer.invoke("update:prompt");
       });
 
       ipcRenderer.on("perf:stats", (_event, stats) => {
@@ -1616,6 +1612,7 @@
           { label: "Clear cookies and site data…", click: clearCookies },
           { separator: true },
           { label: "Show performance log", click: () => ipcRenderer.invoke("perf:open-log") },
+          { label: "Check for updates", click: () => ipcRenderer.invoke("update:check") },
           { label: "Developer tools", click: () => ipcRenderer.invoke("tabs:devtools") },
         ])
       );
@@ -2154,7 +2151,7 @@
       $("accounts-close").addEventListener("click", closePanel);
 
       ipcRenderer.invoke("app:version").then((version) => {
-        if (version) $("app-version").textContent = `Alternative Darkorbit Client ${version}. Updates download by themselves and install when you close the client.`;
+        if (version) $("app-version").textContent = `Alternative Darkorbit Client ${version}`;
       });
 
       // ---------- boot ----------

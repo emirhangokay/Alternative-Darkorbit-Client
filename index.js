@@ -1421,14 +1421,14 @@ ipcMain.on("settings:get-sync", (event) => {
 
 ipcMain.handle("app:version", () => app.getVersion());
 
-// ---------- automatic updates ----------
-// Checks GitHub Releases, downloads a new version in the background and installs it
-// when the client is closed. It never restarts by itself (the player may be mid-fight);
-// the UI offers a "restart to update" button instead.
+// ---------- updates ----------
+// Looks for a new GitHub release when the client starts. Nothing is downloaded or
+// installed unless the player says yes in the pop-up; "Later" leaves everything as is.
 const UPDATE_CHECK_DELAY_MS = 15 * 1000;
-const UPDATE_CHECK_INTERVAL_MS = 4 * 60 * 60 * 1000;
 let updateState = { state: "idle" };
 let autoUpdater = null;
+let manualCheck = false;
+let promptedVersion = null;
 
 const sendUpdateState = () => {
   if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send("update:state", updateState);
@@ -1439,43 +1439,98 @@ const setUpdateState = (next) => {
   sendUpdateState();
 };
 
+const startUpdateDownload = () => {
+  if (!autoUpdater || updateState.state !== "available") return;
+  setUpdateState({ state: "downloading", version: updateState.version, percent: 0 });
+  autoUpdater.downloadUpdate().catch(() => {});
+};
+
+const askToUpdate = async () => {
+  if (!mainWindow || mainWindow.isDestroyed() || updateState.state !== "available") return;
+  const { version } = updateState;
+  promptedVersion = version;
+  const { response } = await dialog.showMessageBox(mainWindow, {
+    type: "info",
+    title: "Update available",
+    message: `Version ${version} is available`,
+    detail:
+      `You are using ${app.getVersion()}. Update now downloads it and restarts the client, so the game reloads.
+
+` +
+      "Choose Later to keep playing. You can update any time from the Update button at the top or ⋮ → Check for updates.",
+    buttons: ["Update now", "Later"],
+    defaultId: 0,
+    cancelId: 1,
+    noLink: true,
+  });
+  if (response === 0) startUpdateDownload();
+};
+
+const showUpdateMessage = (message, detail, type = "info") => {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  dialog.showMessageBox(mainWindow, { type, title: "Updates", message, detail, buttons: ["OK"], noLink: true });
+};
+
+const checkForUpdates = (manual) => {
+  if (!autoUpdater) {
+    if (manual) showUpdateMessage("Updates are only available in the installed client.");
+    return;
+  }
+  if (updateState.state === "available") return askToUpdate();
+  if (updateState.state === "downloading" || updateState.state === "checking") return;
+  manualCheck = !!manual;
+  setUpdateState({ state: "checking" });
+  autoUpdater.checkForUpdates().catch(() => {});
+};
+
 const setupAutoUpdater = () => {
   if (!app.isPackaged) return;
   try {
     ({ autoUpdater } = require("electron-updater"));
   } catch (err) {
-    console.error("Auto update unavailable:", err && err.message);
+    console.error("Updates unavailable:", err && err.message);
     return;
   }
-  autoUpdater.autoDownload = true;
-  autoUpdater.autoInstallOnAppQuit = true;
+  autoUpdater.autoDownload = false;
+  autoUpdater.autoInstallOnAppQuit = false;
   autoUpdater.disableWebInstaller = true;
-  autoUpdater.on("update-available", (info) => setUpdateState({ state: "downloading", version: info.version, percent: 0 }));
+  autoUpdater.on("update-available", (info) => {
+    setUpdateState({ state: "available", version: info.version });
+    // Ask once per version on its own; a manual check always asks.
+    if (manualCheck || promptedVersion !== info.version) askToUpdate();
+    manualCheck = false;
+  });
+  autoUpdater.on("update-not-available", () => {
+    setUpdateState({ state: "idle" });
+    if (manualCheck) showUpdateMessage("You have the latest version", `Alternative Darkorbit Client ${app.getVersion()}`);
+    manualCheck = false;
+  });
   autoUpdater.on("download-progress", (progress) => {
     const percent = Math.floor(progress.percent || 0);
     if (percent === updateState.percent) return;
     setUpdateState({ state: "downloading", version: updateState.version, percent });
   });
-  autoUpdater.on("update-downloaded", (info) => setUpdateState({ state: "ready", version: info.version }));
+  // The player already agreed, so install right away and reopen on the new version.
+  autoUpdater.on("update-downloaded", () => setImmediate(() => autoUpdater.quitAndInstall(true, true)));
   autoUpdater.on("error", (err) => {
-    console.warn("Update check failed:", err && err.message);
-    if (updateState.state === "downloading") setUpdateState({ state: "idle" });
+    console.warn("Update failed:", err && err.message);
+    const wasDownloading = updateState.state === "downloading";
+    setUpdateState(wasDownloading ? { state: "available", version: updateState.version } : { state: "idle" });
+    if (manualCheck || wasDownloading) {
+      showUpdateMessage(
+        wasDownloading ? "The update could not be downloaded" : "Could not check for updates",
+        "Check your internet connection and try again from ⋮ → Check for updates.",
+        "warning"
+      );
+    }
+    manualCheck = false;
   });
-  const check = () => {
-    if (updateState.state !== "idle") return;
-    autoUpdater.checkForUpdates().catch(() => {});
-  };
-  setTimeout(check, UPDATE_CHECK_DELAY_MS);
-  setInterval(check, UPDATE_CHECK_INTERVAL_MS);
+  setTimeout(() => checkForUpdates(false), UPDATE_CHECK_DELAY_MS);
 };
 
 ipcMain.handle("update:state", () => updateState);
-ipcMain.handle("update:install", () => {
-  if (!autoUpdater || updateState.state !== "ready") return false;
-  // Silent install, then start the client again on the new version.
-  setImmediate(() => autoUpdater.quitAndInstall(true, true));
-  return true;
-});
+ipcMain.handle("update:check", () => checkForUpdates(true));
+ipcMain.handle("update:prompt", () => askToUpdate());
 
 ipcMain.handle("settings:get", () => {
   return settings;

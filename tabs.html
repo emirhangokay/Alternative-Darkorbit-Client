@@ -356,6 +356,38 @@
         background: var(--danger);
       }
 
+      .update-pill {
+        align-self: center;
+        height: 24px;
+        padding: 0 10px;
+        margin-right: 6px;
+        border: 1px solid var(--accent);
+        border-radius: 12px;
+        background: var(--accent-soft);
+        color: var(--accent);
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 11.5px;
+        font-weight: 600;
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+        -webkit-app-region: no-drag;
+      }
+
+      .update-pill.ready {
+        background: var(--accent);
+        color: var(--accent-ink);
+      }
+
+      .update-pill.ready:hover {
+        filter: brightness(1.08);
+      }
+
+      .update-pill:not(.ready) {
+        cursor: default;
+      }
+
       .window-controls {
         display: flex;
         align-self: stretch;
@@ -1015,6 +1047,7 @@
         <div class="tabs" id="tab-strip"></div>
         <button class="icon-btn sm" id="add-tab" title="New tab (Ctrl+T)" data-icon="plus"></button>
         <div class="drag-spacer"></div>
+        <button class="update-pill" id="update-btn" hidden></button>
         <button class="mem-pill" id="flash-mem" title="Flash memory usage" hidden>Flash 0 MB</button>
         <button class="icon-btn sm" id="compact-toggle" title="Hide toolbar" data-icon="chevronUp"></button>
         <div class="window-controls">
@@ -1521,6 +1554,33 @@
         );
         if (ok) ipcRenderer.invoke("flash:restart");
       };
+
+      // ---------- automatic updates ----------
+      const updateBtn = $("update-btn");
+      let updateState = { state: "idle" };
+      const renderUpdate = (next) => {
+        updateState = next || { state: "idle" };
+        const { state, version, percent } = updateState;
+        updateBtn.hidden = state !== "downloading" && state !== "ready";
+        updateBtn.classList.toggle("ready", state === "ready");
+        if (state === "downloading") {
+          updateBtn.textContent = `Downloading ${version} · ${percent || 0}%`;
+          updateBtn.title = "A new version is downloading in the background.";
+        } else if (state === "ready") {
+          updateBtn.textContent = `Update to ${version}`;
+          updateBtn.title = "Installs when you close the client. Click to restart and install now.";
+        }
+      };
+      ipcRenderer.on("update:state", (_event, next) => renderUpdate(next));
+      ipcRenderer.invoke("update:state").then(renderUpdate);
+      updateBtn.addEventListener("click", async () => {
+        if (updateState.state !== "ready") return;
+        const ok = await confirmDialog(
+          `Restart now to install version ${updateState.version}?`,
+          "The game closes and the client opens again on the new version. If you skip this, the update installs when you close the client."
+        );
+        if (ok) ipcRenderer.invoke("update:install");
+      });
 
       ipcRenderer.on("perf:stats", (_event, stats) => {
         if (!stats) return;
@@ -2094,7 +2154,7 @@
       $("accounts-close").addEventListener("click", closePanel);
 
       ipcRenderer.invoke("app:version").then((version) => {
-        if (version) $("app-version").textContent = `Alternative Darkorbit Client ${version}`;
+        if (version) $("app-version").textContent = `Alternative Darkorbit Client ${version}. Updates download by themselves and install when you close the client.`;
       });
 
       // ---------- boot ----------

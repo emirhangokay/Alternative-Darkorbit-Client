@@ -1421,6 +1421,62 @@ ipcMain.on("settings:get-sync", (event) => {
 
 ipcMain.handle("app:version", () => app.getVersion());
 
+// ---------- automatic updates ----------
+// Checks GitHub Releases, downloads a new version in the background and installs it
+// when the client is closed. It never restarts by itself (the player may be mid-fight);
+// the UI offers a "restart to update" button instead.
+const UPDATE_CHECK_DELAY_MS = 15 * 1000;
+const UPDATE_CHECK_INTERVAL_MS = 4 * 60 * 60 * 1000;
+let updateState = { state: "idle" };
+let autoUpdater = null;
+
+const sendUpdateState = () => {
+  if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send("update:state", updateState);
+};
+
+const setUpdateState = (next) => {
+  updateState = next;
+  sendUpdateState();
+};
+
+const setupAutoUpdater = () => {
+  if (!app.isPackaged) return;
+  try {
+    ({ autoUpdater } = require("electron-updater"));
+  } catch (err) {
+    console.error("Auto update unavailable:", err && err.message);
+    return;
+  }
+  autoUpdater.autoDownload = true;
+  autoUpdater.autoInstallOnAppQuit = true;
+  autoUpdater.disableWebInstaller = true;
+  autoUpdater.on("update-available", (info) => setUpdateState({ state: "downloading", version: info.version, percent: 0 }));
+  autoUpdater.on("download-progress", (progress) => {
+    const percent = Math.floor(progress.percent || 0);
+    if (percent === updateState.percent) return;
+    setUpdateState({ state: "downloading", version: updateState.version, percent });
+  });
+  autoUpdater.on("update-downloaded", (info) => setUpdateState({ state: "ready", version: info.version }));
+  autoUpdater.on("error", (err) => {
+    console.warn("Update check failed:", err && err.message);
+    if (updateState.state === "downloading") setUpdateState({ state: "idle" });
+  });
+  const check = () => {
+    if (updateState.state !== "idle") return;
+    autoUpdater.checkForUpdates().catch(() => {});
+  };
+  setTimeout(check, UPDATE_CHECK_DELAY_MS);
+  setInterval(check, UPDATE_CHECK_INTERVAL_MS);
+};
+
+ipcMain.handle("update:state", () => updateState);
+ipcMain.handle("update:install", () => {
+  if (!autoUpdater || updateState.state !== "ready") return false;
+  // Silent install, then start the client again on the new version.
+  setImmediate(() => autoUpdater.quitAndInstall(true, true));
+  return true;
+});
+
 ipcMain.handle("settings:get", () => {
   return settings;
 });
@@ -1505,6 +1561,7 @@ app.on("ready", () => {
   createMainWindow();
   createTab(DEFAULT_URL, true);
   startPerfMonitor();
+  setupAutoUpdater();
 });
 
 app.on("window-all-closed", () => {

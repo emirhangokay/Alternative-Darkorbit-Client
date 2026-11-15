@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.2.0
+
+### Installation
+Download and run `Alternative-Darkorbit-Client-Setup-2.2.0.exe` once. Your settings and saved accounts are kept. This is the last version you install by hand: from now on the client updates itself.
+
+### What's new
+- **Automatic updates:** the client checks for new versions, downloads them in the background and installs them when you close it. It never restarts by itself while you play; an **Update to x.y.z** button lets you restart right away.
+
 ## 2.1.0
 
 ### Installation

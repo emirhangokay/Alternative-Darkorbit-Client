@@ -1,4 +1,4 @@
-# Alternative Darkorbit Client 2.1
+# Alternative Darkorbit Client 2.2
 An Electron-based game client developed for DarkOrbit. This repository contains the application’s source code, user interface, and configuration files.
 
 ---
@@ -8,6 +8,8 @@ An Electron-based game client developed for DarkOrbit. This repository contains 
 [![Download the latest release](https://img.shields.io/github/v/release/emirhangokay/Alternative-Darkorbit-Client?label=Download&style=for-the-badge&color=4DB8FF)](https://github.com/emirhangokay/Alternative-Darkorbit-Client/releases/latest)
 
 Get **`Alternative Darkorbit Client`** from the [latest release](https://github.com/emirhangokay/Alternative-Darkorbit-Client/releases/latest) (Windows 10/11, 64-bit). Installing a new version over an old one keeps your settings and saved accounts.
+
+From 2.2.0 on the client updates itself: it downloads a new version in the background and installs it when you close the client, keeping your settings and saved accounts. When an update is ready, an **Update to x.y.z** button appears next to the window buttons if you want to restart right away. (Coming from 2.1.0 or older? Install 2.2.0 by hand once.)
 
 ---
 
@@ -44,6 +46,19 @@ Recommended settings (⚙️ in the toolbar):
 Why the last one matters: DarkOrbit’s Flash client piles up memory while it runs and, after roughly half an hour, starts to stutter. Only reloading the game clears that. The client does it for you when Flash is over the limit and you have switched to another window for 20 seconds or left mouse and keyboard alone for 90 seconds. You can also press **Ctrl+Shift+R** at a safe moment.
 
 If a session still gets slow, open ⋮ → **Show performance log** and keep the file; it records Flash’s memory and CPU every few seconds.
+
+---
+
+## 🚢 Publishing a release
+
+1. Raise `version` in `package.json` and add the notes to `CHANGELOG.md`.
+2. Run `npm run dist`.
+3. Create a GitHub release tagged `v<version>` and upload **all three** files from `dist/`:
+   - `Alternative-Darkorbit-Client-Setup-<version>.exe`
+   - `Alternative-Darkorbit-Client-Setup-<version>.exe.blockmap`
+   - `latest.yml`
+
+`latest.yml` is what installed clients read to find the update; without it nobody gets updated. Installs made "for all users" (in Program Files) show a Windows admin prompt when the update installs; "only for me" installs update silently.
 
 ---
 

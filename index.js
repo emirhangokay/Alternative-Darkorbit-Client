@@ -473,6 +473,81 @@ const setPanel = (name) => {
   }
 };
 
+// ---------- Flash quality ----------
+// Flash's quality (Low/Medium/High) lives in its own right-click menu, and DarkOrbit
+// switches it back to High once the game has loaded, whatever the page asked for.
+// Electron hands that menu to the main process ("pepper-context-menu") with working
+// items, so after a page loads we send Flash a right-click, never show the menu, and
+// pick the quality from settings if it is not already selected.
+const QUALITY_INDEX = { low: 0, medium: 1, high: 2 };
+// The game finishes loading at different times; look a few times, then leave it alone.
+const QUALITY_CHECK_DELAYS_MS = [6000, 15000, 30000, 60000, 120000, 240000];
+
+const findQualityItems = (items) => {
+  for (const item of items || []) {
+    const sub = item && item.submenu;
+    if (!Array.isArray(sub)) continue;
+    // Low / Medium / High: three plain entries, only the selected one comes as a checkbox.
+    const plain = sub.every((entry) => entry && !entry.submenu && entry.type !== "separator");
+    const selected = sub.filter((entry) => entry.type === "checkbox" || entry.type === "radio");
+    if (sub.length === 3 && plain && selected.length <= 1) return sub;
+    const nested = findQualityItems(sub);
+    if (nested) return nested;
+  }
+  return null;
+};
+
+const FLASH_SPOT_SCRIPT = `(() => {
+  const isFlash = (el) => {
+    const type = (el.getAttribute("type") || "").toLowerCase();
+    const src = (el.getAttribute("src") || el.getAttribute("data") || "").toLowerCase();
+    return type.includes("shockwave-flash") || src.split("?")[0].endsWith(".swf");
+  };
+  let best = null;
+  document.querySelectorAll("embed, object").forEach((el) => {
+    if (!isFlash(el)) return;
+    const r = el.getBoundingClientRect();
+    const area = Math.max(0, Math.min(r.right, innerWidth) - Math.max(r.left, 0)) *
+      Math.max(0, Math.min(r.bottom, innerHeight) - Math.max(r.top, 0));
+    if (area > 40000 && (!best || area > best.area)) best = { area, left: r.left, top: r.top, right: r.right, bottom: r.bottom };
+  });
+  return best;
+})()`;
+
+const probeFlashQuality = async (tab) => {
+  const wanted = QUALITY_INDEX[settings.flashQuality];
+  const wc = tab.view && tab.view.webContents;
+  if (wanted === undefined || !wc || wc.isDestroyed() || tab.id !== activeTabId || tab.qualityProbe) return;
+  let rect = null;
+  try {
+    rect = await wc.executeJavaScript(FLASH_SPOT_SCRIPT, true);
+  } catch (_err) {}
+  if (!rect || wc.isDestroyed() || !mainWindow || mainWindow.isDestroyed()) return;
+  const zoom = wc.getZoomFactor() || 1;
+  // Click where the mouse already is if it is over the game, so Flash never sees the
+  // pointer jump (a jump could steer the ship); otherwise use the game's bottom edge.
+  const cursor = screen.getCursorScreenPoint();
+  const content = mainWindow.getContentBounds();
+  const bounds = tab.view.getBounds();
+  const cx = (cursor.x - content.x - bounds.x) / zoom;
+  const cy = (cursor.y - content.y - bounds.y) / zoom;
+  const inside = cx > rect.left + 2 && cx < rect.right - 2 && cy > rect.top + 2 && cy < rect.bottom - 2;
+  const x = inside ? cx : (rect.left + rect.right) / 2;
+  const y = inside ? cy : rect.bottom - 3;
+  tab.qualityProbe = { wanted };
+  setTimeout(() => {
+    tab.qualityProbe = null;
+  }, 1500);
+  const point = { x: Math.round(x * zoom), y: Math.round(y * zoom) };
+  wc.sendInputEvent({ type: "mouseDown", ...point, button: "right", clickCount: 1 });
+  wc.sendInputEvent({ type: "mouseUp", ...point, button: "right", clickCount: 1 });
+};
+
+const scheduleQualityChecks = (tab) => {
+  (tab.qualityTimers || []).forEach(clearTimeout);
+  tab.qualityTimers = QUALITY_CHECK_DELAYS_MS.map((delay) => setTimeout(() => probeFlashQuality(tab), delay));
+};
+
 const attachViewEvents = (tab) => {
   const { view } = tab;
   view.webContents.on("page-title-updated", (_e, title) => {
@@ -491,6 +566,29 @@ const attachViewEvents = (tab) => {
     tab.url = view.webContents.getURL();
     broadcastState();
     commitPendingAutofill(view.webContents);
+    scheduleQualityChecks(tab);
+  });
+
+  // Flash's own right-click menu. Replaces Electron's built-in handler so our quality
+  // check can use the menu without it ever appearing; real right-clicks look the same.
+  view.webContents.removeAllListeners("pepper-context-menu");
+  view.webContents.on("pepper-context-menu", (event, params, done) => {
+    const probe = tab.qualityProbe;
+    if (probe) {
+      // One right-click can raise the menu twice; swallow every menu during the check
+      // so none of them ever shows up on screen.
+      const choices = findQualityItems(params.menu);
+      const target = choices && choices[probe.wanted];
+      if (target && !target.checked && typeof target.click === "function") target.click();
+      if (typeof done === "function") done();
+      return;
+    }
+    Menu.buildFromTemplate(params.menu).popup({
+      window: event.sender.getOwnerBrowserWindow(),
+      x: params.x,
+      y: params.y,
+      callback: done,
+    });
   });
 
   view.webContents.on("did-start-loading", broadcastState);

@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.4.1
+
+### Fixed
+- **Flash quality really stays on Low:** DarkOrbit switched Flash back to High once the game had loaded. The client now checks the quality a few times during the first minutes after a page loads and sets it back to the one in ⚙️ → Flash render quality, without the right-click menu ever appearing.
+
 ## 2.4.0
 
 ### What's new

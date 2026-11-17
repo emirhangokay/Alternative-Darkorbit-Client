@@ -1,4 +1,4 @@
-# Alternative Darkorbit Client 2.4
+# Alternative Darkorbit Client 2.5
 An Electron-based game client developed for DarkOrbit. This repository contains the application’s source code, user interface, and configuration files.
 
 ---
@@ -27,7 +27,8 @@ See [CHANGELOG.md](CHANGELOG.md) for what changed in each release.
   - raises the priority of the Flash, GPU and active tab processes
   - opts the client out of Windows background throttling
   - starts Flash in Low render quality (changeable in settings)
-- Flash memory watchdog: live indicator of how much memory Flash has piled up, one-click Flash restart, automatic refresh above the limit that waits until you are away from the game, automatic recovery if Flash crashes; on computers short on RAM it hands Flash's unused memory back to Windows without reloading the game
+- Every tab in its own session: its own login (several accounts at once) and its own Flash
+- Flash memory watchdog, per tab: live indicator of how much memory the game in the current tab has piled up, one-click Flash restart that only reloads that tab, automatic refresh above the limit that waits until you are away from the game, automatic recovery if Flash crashes; on computers short on RAM it hands Flash's unused memory back to Windows without reloading the game
 - Performance log (`performance-log.csv` in the profile folder, also under More → Show performance log) for finding out why a session got slow
 
 ---

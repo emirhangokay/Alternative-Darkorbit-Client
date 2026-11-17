@@ -356,6 +356,27 @@
         background: var(--danger);
       }
 
+      .slot-badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 15px;
+        height: 15px;
+        padding: 0 4px;
+        margin-right: 6px;
+        border-radius: 4px;
+        background: var(--bg-3);
+        color: var(--muted);
+        font-size: 10px;
+        font-weight: 700;
+        vertical-align: 1px;
+      }
+
+      .tab.active .slot-badge {
+        background: var(--accent-soft);
+        color: var(--accent);
+      }
+
       .update-pill {
         align-self: center;
         height: 24px;
@@ -1448,6 +1469,14 @@
           const title = document.createElement("span");
           title.className = "title";
           title.textContent = tab.title || "New Tab";
+          // Tabs in different sessions are different logins; number them when there are several.
+          if (state.tabs.some((t) => t.slot !== tab.slot)) {
+            const badge = document.createElement("span");
+            badge.className = "slot-badge";
+            badge.textContent = tab.slot;
+            badge.title = `Session ${tab.slot}: its own login and its own Flash`;
+            title.prepend(badge);
+          }
 
           const closeBtn = document.createElement("button");
           closeBtn.className = "close-btn";
@@ -1550,7 +1579,7 @@
       const restartFlash = async () => {
         const ok = await confirmDialog(
           "Restart Flash?",
-          "This frees all the memory Flash has piled up. Every game tab reloads and reconnects in a few seconds."
+          "This frees the memory this tab's Flash has piled up. The game in this tab reloads and reconnects in a few seconds; games in other tabs keep running."
         );
         if (ok) ipcRenderer.invoke("flash:restart");
       };
@@ -1580,14 +1609,15 @@
 
       ipcRenderer.on("perf:stats", (_event, stats) => {
         if (!stats) return;
-        flashMemBtn.hidden = !stats.flashRunning;
-        if (!stats.flashRunning) return;
+        // Only the game in the tab you are looking at; other tabs have their own Flash.
+        flashMemBtn.hidden = !stats.activeFlash;
+        if (!stats.activeFlash) return;
         // The number that matters for in-game slowdown is how much Flash has
         // piled up in total, not how much of it currently sits in RAM.
         const used = stats.flashCommitMB;
         const over = stats.limitMB > 0 && used >= stats.limitMB;
         flashMemBtn.textContent = over ? `Flash ${used} MB · Ctrl+Shift+R` : `Flash ${used} MB`;
-        flashMemBtn.title = `Flash has ${used} MB allocated (${stats.flashMB} MB of it in RAM right now) and is using ${stats.flashCpu}% of one CPU core. Click or press Ctrl+Shift+R to refresh Flash.`;
+        flashMemBtn.title = `This tab's Flash has ${used} MB allocated (${stats.flashMB} MB of it in RAM right now) and is using ${stats.flashCpu}% of one CPU core. Click or press Ctrl+Shift+R to refresh it; games in other tabs keep running.`;
         const limit = stats.limitMB > 0 ? stats.limitMB : 0;
         flashMemBtn.classList.toggle("warn", !!limit && used >= limit);
         flashMemBtn.classList.toggle("mid", !!limit && used >= limit * 0.75 && used < limit);

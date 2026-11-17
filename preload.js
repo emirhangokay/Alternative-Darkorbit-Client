@@ -72,6 +72,30 @@ const { ipcRenderer } = require("electron");
   }).observe(document, { childList: true, subtree: true });
 })();
 
+// Tell the client when this page starts showing Flash. Each tab's session has its
+// own Flash process, and this is how the client knows which process is this tab's.
+(() => {
+  const isFlash = (el) => {
+    if (!el || (el.tagName !== "EMBED" && el.tagName !== "OBJECT")) return false;
+    const type = (el.getAttribute("type") || "").toLowerCase();
+    const src = (el.getAttribute("src") || el.getAttribute("data") || "").toLowerCase();
+    return type.includes("shockwave-flash") || src.split("?")[0].endsWith(".swf");
+  };
+  const observer = new MutationObserver((mutations) => {
+    for (const m of mutations) {
+      for (const node of m.addedNodes) {
+        if (node.nodeType !== 1) continue;
+        if (isFlash(node) || (node.querySelector && [...node.querySelectorAll("embed, object")].some(isFlash))) {
+          observer.disconnect();
+          ipcRenderer.send("flash:present");
+          return;
+        }
+      }
+    }
+  });
+  observer.observe(document, { childList: true, subtree: true });
+})();
+
 // A page calling window.close() (the game does on logout) closes its own tab,
 // never the whole client.
 window.close = () => {

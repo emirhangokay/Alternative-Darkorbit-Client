@@ -1,5 +1,16 @@
 # Changelog
 
+## 2.5.0
+
+### What's new
+- **Every tab has its own Flash:** each new tab runs in its own session, with its own login and its own Flash. The memory indicator shows only the game in the tab you are looking at, and refreshing Flash (button, Ctrl+Shift+R or the automatic refresh) reloads only that game; games in other tabs keep running.
+- **Several accounts at once:** because each tab keeps its own login, you can be logged in with a different account in every tab. Logins are remembered per tab number, shown as a small badge on the tab when more than one session is open.
+- Pages a game opens itself (pop-ups) and "Open link in new tab" stay in the same session as the page they came from.
+
+### Good to know
+- A new tab starts logged out; log in once and that tab number remembers it.
+- ⋮ → Clear cookies now logs out every session.
+
 ## 2.4.1
 
 ### Fixed

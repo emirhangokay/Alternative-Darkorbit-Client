@@ -26,6 +26,12 @@ const USER_AGENT =
 const TAB_BAR_HEIGHT = 82;
 const MIN_CHROME_HEIGHT = 36;
 const SESSION_PARTITION = "persist:ua-client";
+// Every tab gets a session slot. Slot 1 is the original session; tabs opened from
+// a page (game pop-ups, "open link in new tab") share their opener's slot, other new
+// tabs take the lowest free one. Each slot is its own login and, because Chromium
+// runs one Flash process per session, its own Flash: memory is measured and Flash
+// is refreshed per slot instead of for every game at once.
+const partitionForSlot = (slot) => (slot > 1 ? `${SESSION_PARTITION}-${slot}` : SESSION_PARTITION);
 const AUTOFILL_STORE = path.join(app.getPath("userData"), "autofill.json");
 const CREDENTIALS_STORE = path.join(app.getPath("userData"), "credentials.json");
 const DARKORBIT_UA = "BigpointClient/1.7.2";
@@ -183,8 +189,8 @@ app.on("gpu-process-crashed", () => {
 // Flash reads this file from its data folder inside our profile when it
 // starts. Only the keys listed here are ours; anything else already in the
 // file is left alone.
-const writeFlashConfig = () => {
-  const partition = SESSION_PARTITION.replace(/^persist:/, "");
+const writeFlashConfig = (persistPartition = SESSION_PARTITION) => {
+  const partition = persistPartition.replace(/^persist:/, "");
   const dir = path.join(
     app.getPath("userData"),
     "Partitions",
@@ -359,6 +365,7 @@ const broadcastState = () => {
       title: tab.title || "New Tab",
       url: tab.url,
       isLoading: tab.view.webContents.isLoading(),
+      slot: tab.slot,
     })),
     canGoBack,
     canGoForward,
@@ -607,7 +614,7 @@ const attachViewEvents = (tab) => {
 
   view.webContents.on("new-window", (event, url) => {
     event.preventDefault();
-    createTab(url, true);
+    createTab(url, true, tab.slot);
   });
 
   // Prevent page from closing the entire client; close only this tab instead
@@ -662,15 +669,31 @@ const attachViewEvents = (tab) => {
   });
 };
 
-const createTab = (url = DEFAULT_URL, activate = true) => {
+const freeSlot = () => {
+  const used = new Set(tabs.map((t) => t.slot));
+  let slot = 1;
+  while (used.has(slot)) slot += 1;
+  return slot;
+};
+
+const configuredPartitions = new Set();
+
+const createTab = (url = DEFAULT_URL, activate = true, slot = freeSlot()) => {
   if (!mainWindow) return;
+  const partition = partitionForSlot(slot);
+  if (!configuredPartitions.has(partition)) {
+    configuredPartitions.add(partition);
+    try {
+      writeFlashConfig(partition);
+    } catch (_err) {}
+  }
   const view = new BrowserView({
     webPreferences: {
       plugins: true,
       spellcheck: false,
       nodeIntegration: false,
       nativeWindowOpen: true,
-      partition: SESSION_PARTITION,
+      partition,
       preload: path.join(__dirname, "preload.js"),
       contextIsolation: false,
     },
@@ -683,6 +706,8 @@ const createTab = (url = DEFAULT_URL, activate = true) => {
     title: "Loading...",
     url: normalizeUrl(url),
     zoom: defaultZoom,
+    slot,
+    flashSeenAt: 0,
   };
 
   tabs.push(tab);
@@ -887,7 +912,8 @@ const registerShortcuts = () => {
   safeRegister("CommandOrControl+Shift+Tab", () => moveActive(-1));
   safeRegister("F11", toggleFullscreen);
   safeRegister("CommandOrControl+Shift+R", () => {
-    if (restartFlash()) lastAutoRestart = Date.now();
+    const active = findTab(activeTabId);
+    if (restartFlash() && active) slotLastRestart.set(active.slot, Date.now());
   });
 };
 
@@ -982,7 +1008,10 @@ const disablePowerThrottling = () => {
   );
 };
 let flashPids = [];
-let lastAutoRestart = 0;
+// slot -> pid of that session's Flash process, and per-slot auto-refresh times
+const slotFlashPid = new Map();
+const slotLastRestart = new Map();
+let flashBySlot = new Map();
 let lastTrim = 0;
 let trimCooldown = 60000;
 let trimBusy = false;
@@ -1002,6 +1031,37 @@ const syncSleepBlocker = (flashRunning) => {
 };
 
 const isFlashProcess = (m) => /pepper|ppapi|plugin/i.test(m.type || "") && !/broker/i.test(m.type || "");
+
+// Chromium does not say which tab a Flash process serves. Each session gets its own
+// process, started when a page of that session first shows Flash (the preload
+// reports that), so new processes are matched to waiting slots in start order.
+const assignFlashPids = (flashMetrics) => {
+  const live = new Set(flashMetrics.map((m) => m.pid));
+  for (const [slot, pid] of slotFlashPid) {
+    if (!live.has(pid) || !tabs.some((t) => t.slot === slot)) slotFlashPid.delete(slot);
+  }
+  const assigned = new Set(slotFlashPid.values());
+  const fresh = flashMetrics
+    .filter((m) => !assigned.has(m.pid))
+    .sort((a, b) => (a.creationTime || 0) - (b.creationTime || 0));
+  if (!fresh.length) return;
+  const waiting = [];
+  tabs.forEach((t) => {
+    if (!t.flashSeenAt || slotFlashPid.has(t.slot)) return;
+    const entry = waiting.find((w) => w.slot === t.slot);
+    if (entry) entry.seen = Math.min(entry.seen, t.flashSeenAt);
+    else waiting.push({ slot: t.slot, seen: t.flashSeenAt });
+  });
+  waiting.sort((a, b) => a.seen - b.seen);
+  // With one Flash process and one session there is nothing to guess.
+  const slotsOpen = new Set(tabs.map((t) => t.slot));
+  if (!waiting.length && fresh.length === 1 && slotsOpen.size === 1 && !slotFlashPid.size) {
+    waiting.push({ slot: tabs[0].slot });
+  }
+  fresh.forEach((m, i) => {
+    if (waiting[i]) slotFlashPid.set(waiting[i].slot, m.pid);
+  });
+};
 
 const collectPerfStats = () => {
   let metrics;
@@ -1043,15 +1103,34 @@ const collectPerfStats = () => {
     }
   });
   flashPids = pids;
+  const flashMetrics = metrics.filter(isFlashProcess);
+  assignFlashPids(flashMetrics);
+  flashBySlot = new Map();
+  for (const [slot, pid] of slotFlashPid) {
+    const m = flashMetrics.find((x) => x.pid === pid);
+    if (!m) continue;
+    const mem = m.memory || {};
+    flashBySlot.set(slot, {
+      pid,
+      ramMB: Math.round((mem.workingSetSize || 0) / 1024),
+      commitMB: Math.round((mem.privateBytes || mem.workingSetSize || 0) / 1024),
+      cpu: Math.round(((m.cpu && m.cpu.percentCPUUsage) || 0) * CORE_COUNT),
+    });
+  }
+  // Everything shown and logged is about the tab you are looking at.
+  const activeTab = findTab(activeTabId);
+  const mine = activeTab ? flashBySlot.get(activeTab.slot) : null;
   return {
-    flashMB: Math.round(flashKB / 1024),
-    flashCommitMB: Math.round(flashCommitKB / 1024),
+    flashMB: mine ? mine.ramMB : 0,
+    flashCommitMB: mine ? mine.commitMB : 0,
+    flashTotalMB: Math.round(flashCommitKB / 1024),
+    activeFlash: !!mine,
     totalMB: Math.round(totalKB / 1024),
     cpu: Math.round(cpu),
     // Electron reports CPU as a share of all cores; these are scaled so that
     // 100 means "one core fully busy". Flash's game loop runs on a single
     // thread, so a Flash value near 100 means the game itself is the limit.
-    flashCpu: Math.round(flashCpu * CORE_COUNT),
+    flashCpu: mine ? mine.cpu : 0,
     gpuCpu: Math.round(gpuCpu * CORE_COUNT),
     tabCpu: Math.round(tabCpu * CORE_COUNT),
     flashRunning: pids.length > 0,
@@ -1133,8 +1212,8 @@ const boostFlashPriority = () => {
 // plugin's working set. Memory the game leaked and never reads again leaves
 // physical RAM for good; pages it still uses come straight back on next access.
 // Runs in a short-lived helper process, so the game itself never stalls on it.
-const trimFlashMemory = async () => {
-  const pids = flashPids.filter((pid) => Number.isInteger(pid));
+const trimFlashMemory = async (onlyPids) => {
+  const pids = (onlyPids || flashPids).filter((pid) => Number.isInteger(pid));
   if (trimBusy || !pids.length) return false;
   trimBusy = true;
   const ok = await runPowerShell(TRIM_SCRIPT + forEachPid(pids, "[DoClient.Mem]::EmptyWorkingSet"));
@@ -1142,17 +1221,22 @@ const trimFlashMemory = async () => {
   return ok;
 };
 
-const restartFlash = () => {
+// Refreshes the Flash of one session slot (default: the tab you are looking at).
+// Killing that plugin process frees everything it leaked; the tabs using it get
+// "plugin-crashed" and reload, other tabs' games keep running.
+const restartFlash = (slot) => {
   collectPerfStats();
-  if (!flashPids.length) return false;
-  // Killing the plugin process frees everything it leaked; every tab that was
-  // using Flash gets "plugin-crashed" and reloads itself.
-  flashPids.forEach((pid) => {
-    try {
-      process.kill(pid);
-    } catch (_err) {}
-    boostedPids.delete(pid);
-  });
+  const active = findTab(activeTabId);
+  const target = slot || (active && active.slot);
+  let pid = target ? slotFlashPid.get(target) : null;
+  // Only one Flash running: that is the one, whatever the mapping says.
+  if (!pid && flashPids.length === 1) pid = flashPids[0];
+  if (!pid) return false;
+  try {
+    process.kill(pid);
+  } catch (_err) {}
+  boostedPids.delete(pid);
+  if (target) slotFlashPid.delete(target);
   return true;
 };
 
@@ -1182,10 +1266,10 @@ const perfTick = () => {
   // free it frees nothing useful and just makes Flash fetch its pages back, so
   // it is skipped unless less than a fifth of the system's memory is left.
   const memoryIsTight = os.freemem() < os.totalmem() * 0.2;
+  const overLimit = stats.limitMB > 0 ? [...flashBySlot.entries()].filter(([, f]) => f.commitMB >= stats.limitMB) : [];
   if (
     memoryIsTight &&
-    stats.limitMB > 0 &&
-    stats.flashMB >= stats.limitMB &&
+    overLimit.some(([, f]) => f.ramMB >= stats.limitMB) &&
     now - lastTrim > trimCooldown &&
     !psBusy
   ) {
@@ -1193,17 +1277,15 @@ const perfTick = () => {
     // that memory; trimming it again and again would only cost FPS, so back off.
     trimCooldown = lastTrim && now - lastTrim < trimCooldown * 2 ? Math.min(trimCooldown * 2, 600000) : 60000;
     lastTrim = now;
-    trimFlashMemory();
+    trimFlashMemory(overLimit.filter(([, f]) => f.ramMB >= stats.limitMB).map(([, f]) => f.pid));
   }
-  if (
-    settings.flashAutoRestart &&
-    stats.limitMB > 0 &&
-    stats.flashCommitMB >= stats.limitMB &&
-    now - lastAutoRestart > 120000 &&
-    playerIsAway(now)
-  ) {
-    lastAutoRestart = now;
-    restartFlash();
+  if (settings.flashAutoRestart && playerIsAway(now)) {
+    // Each game over the limit is refreshed on its own; the others keep running.
+    overLimit.forEach(([slot]) => {
+      if (now - (slotLastRestart.get(slot) || 0) <= 120000) return;
+      slotLastRestart.set(slot, now);
+      restartFlash(slot);
+    });
   }
   mainWindow.webContents.send("perf:stats", stats);
 };
@@ -1215,6 +1297,10 @@ const startPerfMonitor = () => {
 };
 
 ipcMain.handle("flash:restart", () => restartFlash());
+ipcMain.on("flash:present", (event) => {
+  const tab = findTabByWebContentsId(event.sender.id);
+  if (tab) tab.flashSeenAt = Date.now();
+});
 
 ipcMain.handle("tabs:create", (_event, url) => createTab(url || DEFAULT_URL, true));
 ipcMain.handle("tabs:close-others", (_event, id) => {
@@ -1439,7 +1525,15 @@ ipcMain.handle("credentials:delete", (_e, origin, username) => {
 
 ipcMain.handle("cookies:clear", async () => {
   try {
-    await session.fromPartition(SESSION_PARTITION).clearStorageData();
+    const partitions = new Set([SESSION_PARTITION, ...configuredPartitions]);
+    try {
+      fs.readdirSync(path.join(app.getPath("userData"), "Partitions"))
+        .filter((name) => /^ua-client(-\d+)?$/.test(name))
+        .forEach((name) => partitions.add(`persist:${name}`));
+    } catch (_err) {}
+    for (const partition of partitions) {
+      await session.fromPartition(partition).clearStorageData();
+    }
     await session.defaultSession.clearStorageData();
     const targetTab = findTab(activeTabId) || tabs[0];
     if (targetTab) {
@@ -1665,17 +1759,19 @@ ipcMain.on("ranks:list", (event) => {
 
 // Right-click menu for web pages, in the usual browser order. Flash keeps its own menu.
 const buildContextMenu = (wc, params) => {
+  const source = findTabByWebContentsId(wc.id);
+  const slot = source ? source.slot : undefined;
   const { clipboard } = require("electron");
   const groups = [];
   if (params.linkURL) {
     groups.push([
-      { label: "Open link in new tab", click: () => createTab(params.linkURL, true) },
+      { label: "Open link in new tab", click: () => createTab(params.linkURL, true, slot) },
       { label: "Copy link address", click: () => clipboard.writeText(params.linkURL) },
     ]);
   }
   if (params.mediaType === "image" && params.srcURL) {
     groups.push([
-      { label: "Open image in new tab", click: () => createTab(params.srcURL, true) },
+      { label: "Open image in new tab", click: () => createTab(params.srcURL, true, slot) },
       { label: "Save image as...", click: () => wc.downloadURL(params.srcURL) },
       { label: "Copy image", click: () => wc.copyImageAt(params.x, params.y) },
       { label: "Copy image address", click: () => clipboard.writeText(params.srcURL) },
@@ -1705,7 +1801,7 @@ const buildContextMenu = (wc, params) => {
     ]);
   }
   groups.push([
-    { label: "View page source", click: () => createTab(`view-source:${wc.getURL()}`, true) },
+    { label: "View page source", click: () => createTab(`view-source:${wc.getURL()}`, true, slot) },
     { label: "Inspect", click: () => wc.inspectElement(params.x, params.y) },
   ]);
   if (selection) {
@@ -1713,7 +1809,7 @@ const buildContextMenu = (wc, params) => {
     groups.push([
       {
         label: `Search Google for "${short.replace(/&/g, "&&")}"`,
-        click: () => createTab(`https://www.google.com/search?q=${encodeURIComponent(selection)}`, true),
+        click: () => createTab(`https://www.google.com/search?q=${encodeURIComponent(selection)}`, true, slot),
       },
     ]);
   }

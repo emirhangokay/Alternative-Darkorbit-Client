@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.6.2
+
+### Fixes
+- Tab groups no longer show account names left over from an earlier run. A group shows an account name only after you log in with it, or open a saved account in its own tab; until then it is labelled "Account N".
+
 ## 2.6.1
 
 ### What's new

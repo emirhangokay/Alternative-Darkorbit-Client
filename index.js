@@ -350,10 +350,20 @@ const normalizeUrl = (raw) => {
   return `http://${trimmed}`;
 };
 
+// Tabs are grouped by session (one group = one account): a group's tabs always
+// sit next to each other, groups keep the order in which they first appeared.
+const groupTabs = (list) => {
+  const order = [];
+  list.forEach((t) => {
+    if (!order.includes(t.slot)) order.push(t.slot);
+  });
+  return order.flatMap((slot) => list.filter((t) => t.slot === slot));
+};
+
 const broadcastState = () => {
   if (!mainWindow || mainWindow.isDestroyed()) return;
-  const safeTabs = tabs.filter(
-    (tab) => tab.view && tab.view.webContents && !tab.view.webContents.isDestroyed()
+  const safeTabs = groupTabs(
+    tabs.filter((tab) => tab.view && tab.view.webContents && !tab.view.webContents.isDestroyed())
   );
   tabs = safeTabs;
   if (tabs.length && !tabs.some((t) => t.id === activeTabId)) {
@@ -568,15 +578,6 @@ const scheduleQualityChecks = (tab) => {
   tab.qualityTimers = QUALITY_CHECK_DELAYS_MS.map((delay) => setTimeout(() => probeFlashQuality(tab), delay));
 };
 
-const isGameMapUrl = (url) => {
-  try {
-    const u = new URL(url);
-    return /(^|\.)darkorbit\.com$/i.test(u.hostname) && /internalMap/i.test(u.search);
-  } catch (_err) {
-    return false;
-  }
-};
-
 const attachViewEvents = (tab) => {
   const { view } = tab;
   view.webContents.on("page-title-updated", (_e, title) => {
@@ -641,15 +642,8 @@ const attachViewEvents = (tab) => {
 
   view.webContents.on("new-window", (event, url) => {
     event.preventDefault();
-    // DarkOrbit's Start button opens the game map in a new window; play it in this
-    // tab instead of leaving the start page behind in another one.
-    if (isGameMapUrl(url)) {
-      tab.url = url;
-      const ua = pickUserAgent(url);
-      view.webContents.setUserAgent(ua);
-      view.webContents.loadURL(url, { userAgent: ua });
-      return;
-    }
+    // Pages the game opens (the map, the shop...) go to a new tab in the same group:
+    // same session, same account.
     createTab(url, true, tab.slot);
   });
 
@@ -780,7 +774,16 @@ const closeTab = (id) => {
   const index = tabs.findIndex((t) => t.id === id);
   if (index === -1) return;
   const [tab] = tabs.splice(index, 1);
-  const fallback = tabs[index - 1] || tabs[index] || tabs[0];
+  // Closing a background tab keeps you where you are; closing the current one moves
+  // to a neighbour in the same group (same account) when there is one.
+  const sameGroup = tabs.filter((t) => t.slot === tab.slot);
+  const fallback =
+    (tab.id !== activeTabId && findTab(activeTabId)) ||
+    sameGroup.find((t) => tabs.indexOf(t) >= index) ||
+    sameGroup[sameGroup.length - 1] ||
+    tabs[index - 1] ||
+    tabs[index] ||
+    tabs[0];
 
   safeRemoveViewFromWindow(tab.view);
   destroyTab(tab);
@@ -1395,7 +1398,14 @@ ipcMain.on("flash:present", (event) => {
   if (tab) tab.flashSeenAt = Date.now();
 });
 
-ipcMain.handle("tabs:create", (_event, url) => createTab(url || DEFAULT_URL, true));
+ipcMain.handle("tabs:create", (_event, url, slot) =>
+  Number.isInteger(slot) && tabs.some((t) => t.slot === slot)
+    ? (createTab(url || settings.homepage || DEFAULT_URL, true, slot), true)
+    : (createTab(url || DEFAULT_URL, true), true)
+);
+ipcMain.handle("tabs:close-group", (_event, slot) => {
+  tabs.filter((t) => t.slot === slot).forEach((t) => closeTab(t.id));
+});
 ipcMain.handle("tabs:close-others", (_event, id) => {
   if (!findTab(id)) return;
   tabs
@@ -1476,7 +1486,7 @@ ipcMain.on("tabs:reorder", (_event, { draggedId, targetId }) => {
   const draggedIndex = tabs.findIndex((t) => t.id === draggedId);
   const targetIndex = tabs.findIndex((t) => t.id === targetId);
   
-  if (draggedIndex !== -1 && targetIndex !== -1) {
+  if (draggedIndex !== -1 && targetIndex !== -1 && tabs[draggedIndex].slot === tabs[targetIndex].slot) {
     // Tab sırasını değiştir
     const temp = tabs[draggedIndex];
     tabs[draggedIndex] = tabs[targetIndex];

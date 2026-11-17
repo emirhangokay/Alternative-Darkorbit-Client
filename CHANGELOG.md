@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.6.1
+
+### What's new
+- **Tab groups, one per account:** tabs are grouped by session. Each group has a coloured label with its account name, and its tabs always sit next to each other, so two accounts that both started the game make two tidy groups of two tabs.
+- **The game opens in a new tab again**, inside the same group as the page that opened it (same login, same Flash).
+- Click a group's label for **New tab in this group** or **Close group**. Dragging a tab only moves it within its own group.
+- Closing a background tab keeps you on the tab you are looking at; closing the current tab moves to another tab of the same group.
+
 ## 2.6.0
 
 ### What's new

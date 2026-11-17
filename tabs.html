@@ -356,29 +356,46 @@
         background: var(--danger);
       }
 
-      .slot-badge {
-        display: inline-block;
-        line-height: 15px;
-        text-align: center;
-        min-width: 15px;
-        max-width: 96px;
-        height: 15px;
-        padding: 0 4px;
+      .group-chip {
+        flex-shrink: 0;
+        align-self: center;
+        max-width: 120px;
+        height: 22px;
+        margin: 0 2px 0 6px;
+        padding: 0 9px;
+        border: none;
+        border-radius: 11px;
+        background: var(--group);
+        color: #0a0d13;
+        font-size: 11.5px;
+        font-weight: 700;
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
-        margin-right: 6px;
-        border-radius: 4px;
-        background: var(--bg-3);
-        color: var(--muted);
-        font-size: 10px;
-        font-weight: 700;
-        vertical-align: 1px;
+        -webkit-app-region: no-drag;
       }
 
-      .tab.active .slot-badge {
-        background: var(--accent-soft);
-        color: var(--accent);
+      .group-chip:first-child {
+        margin-left: 0;
+      }
+
+      .group-chip:hover {
+        filter: brightness(1.1);
+      }
+
+      .tab.grouped::after {
+        content: "";
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        height: 2px;
+        background: var(--group);
+        opacity: 0.85;
+      }
+
+      .tab.grouped.active::before {
+        background: var(--group);
       }
 
       .update-pill {
@@ -1472,11 +1489,51 @@
       // ---------- tabs ----------
       let draggedId = null;
 
+      // ---------- tab groups ----------
+      // One group per session, i.e. per account. Shown once there is more than one,
+      // or as soon as the only group knows its account.
+      const GROUP_COLORS = ["#4db8ff", "#f5a524", "#3dd68c", "#f06ba8", "#a78bfa", "#f97066", "#2dd4bf", "#facc15"];
+      const groupColor = (slot) => GROUP_COLORS[(slot - 1) % GROUP_COLORS.length];
+      const groupName = (tab) => tab.account || `Account ${tab.slot}`;
+      const showGroupMenu = (tab) => {
+        const count = state.tabs.filter((t) => t.slot === tab.slot).length;
+        popupMenu([
+          { label: "New tab in this group", click: () => ipcRenderer.invoke("tabs:create", "", tab.slot) },
+          { separator: true },
+          {
+            label: count > 1 ? `Close group (${count} tabs)` : "Close group",
+            click: () => ipcRenderer.invoke("tabs:close-group", tab.slot),
+          },
+        ]);
+      };
+
       const renderTabs = () => {
         tabStrip.innerHTML = "";
+        const slots = [...new Set(state.tabs.map((t) => t.slot))];
+        const grouped = slots.length > 1 || state.tabs.some((t) => t.account);
+        let previousSlot = null;
         state.tabs.forEach((tab) => {
+          if (grouped && tab.slot !== previousSlot) {
+            const chip = document.createElement("button");
+            chip.className = "group-chip";
+            chip.style.setProperty("--group", groupColor(tab.slot));
+            chip.textContent = groupName(tab);
+            chip.title = `${groupName(tab)}: these tabs share one login and one Flash. Click for options.`;
+            chip.addEventListener("click", () => showGroupMenu(tab));
+            chip.addEventListener("contextmenu", (event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              showGroupMenu(tab);
+            });
+            tabStrip.appendChild(chip);
+          }
+          previousSlot = tab.slot;
           const el = document.createElement("div");
           el.className = "tab";
+          if (grouped) {
+            el.classList.add("grouped");
+            el.style.setProperty("--group", groupColor(tab.slot));
+          }
           el.draggable = true;
           el.dataset.id = tab.id;
           el.title = tab.title ? `${tab.title}\n${tab.url}` : tab.url;
@@ -1489,17 +1546,7 @@
           const title = document.createElement("span");
           title.className = "title";
           title.textContent = tab.title || "New Tab";
-          // Each session is its own login: show the account it logged in with, or its
-          // number when several sessions are open and the account is not known yet.
-          if (tab.account || state.tabs.some((t) => t.slot !== tab.slot)) {
-            const badge = document.createElement("span");
-            badge.className = "slot-badge";
-            badge.textContent = tab.account || tab.slot;
-            badge.title = tab.account
-              ? `Session ${tab.slot}, logged in as ${tab.account}`
-              : `Session ${tab.slot}: its own login and its own Flash`;
-            title.prepend(badge);
-          }
+
 
           const closeBtn = document.createElement("button");
           closeBtn.className = "close-btn";

@@ -27,7 +27,7 @@ See [CHANGELOG.md](CHANGELOG.md) for what changed in each release.
   - raises the priority of the Flash, GPU and active tab processes
   - opts the client out of Windows background throttling
   - starts Flash in Low render quality (changeable in settings)
-- Every tab in its own session: its own login (several accounts at once) and its own Flash
+- Tab groups, one per account: each group has its own login (several accounts at once) and its own Flash; pages the game opens join their group
 - Saved accounts open in a tab of their own with one click and log in by themselves; tabs show which account they are on
 - The game in the current tab gets the CPU first when several games are open
 - Flash memory watchdog, per tab: live indicator of how much memory the game in the current tab has piled up, one-click Flash restart that only reloads that tab, automatic refresh above the limit that waits until you are away from the game, automatic recovery if Flash crashes; on computers short on RAM it hands Flash's unused memory back to Windows without reloading the game

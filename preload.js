@@ -443,6 +443,17 @@ const applyCredentials = (username, password) => {
 };
 
 const captureLoginOnSubmit = async (event) => {
+  // Remember which account this tab's session logs in with (name only), so the
+  // tab can show it. Saving the password below stays opt-in.
+  try {
+    const form = event.target;
+    const pass = form && form.querySelector && form.querySelector("input[type='password']");
+    if (pass && pass.value) {
+      const field = pickUsernameField(Array.from(form.querySelectorAll("input")));
+      const name = field ? (field.value || "").trim() : "";
+      if (name) ipcRenderer.send("session:login", name);
+    }
+  } catch (_err) {}
   let settings;
   try {
     settings = await ipcRenderer.invoke("settings:get");
@@ -475,7 +486,7 @@ window.addEventListener("DOMContentLoaded", () => {
 // Accounts panel in the client chrome asks us to log in with a saved account
 ipcRenderer.on("credentials:apply", (_event, account) => {
   if (!account) return;
-  applyCredentials(account.username, account.password);
+  if (applyCredentials(account.username, account.password)) ipcRenderer.send("credentials:applied");
 });
 
 window.addEventListener(

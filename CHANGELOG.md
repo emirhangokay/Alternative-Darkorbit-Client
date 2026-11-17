@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.6.0
+
+### What's new
+- **Open an account in its own tab:** every saved account has a new-tab button in Accounts. It opens the site in a session of its own and logs in by itself. An account you used before goes back to its old session, which is usually still logged in.
+- **Account names on tabs:** a tab shows the account its session logged in with, so you can tell your accounts apart at a glance.
+- **The game you look at goes first:** with several games open, the one in the current tab gets the CPU first; games in other tabs give way when the CPU is busy and keep running.
+- **Game map opens in the same tab:** DarkOrbit's Start button no longer leaves the start page behind in an extra tab.
+- Accounts list: edit and delete are icon buttons now, so long names fit.
+
 ## 2.5.0
 
 ### What's new

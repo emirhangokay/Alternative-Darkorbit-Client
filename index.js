@@ -31,6 +31,18 @@ const SESSION_PARTITION = "persist:ua-client";
 // tabs take the lowest free one. Each slot is its own login and, because Chromium
 // runs one Flash process per session, its own Flash: memory is measured and Flash
 // is refreshed per slot instead of for every game at once.
+const SESSION_ACCOUNTS_FILE = path.join(app.getPath("userData"), "session-accounts.json");
+let slotAccounts = {};
+try {
+  slotAccounts = JSON.parse(fs.readFileSync(SESSION_ACCOUNTS_FILE, "utf8")) || {};
+} catch (_err) {
+  slotAccounts = {};
+}
+const saveSlotAccounts = () => {
+  try {
+    fs.writeFileSync(SESSION_ACCOUNTS_FILE, JSON.stringify(slotAccounts, null, 2), "utf8");
+  } catch (_err) {}
+};
 const partitionForSlot = (slot) => (slot > 1 ? `${SESSION_PARTITION}-${slot}` : SESSION_PARTITION);
 const AUTOFILL_STORE = path.join(app.getPath("userData"), "autofill.json");
 const CREDENTIALS_STORE = path.join(app.getPath("userData"), "credentials.json");
@@ -366,6 +378,7 @@ const broadcastState = () => {
       url: tab.url,
       isLoading: tab.view.webContents.isLoading(),
       slot: tab.slot,
+      account: slotAccounts[tab.slot] || "",
     })),
     canGoBack,
     canGoForward,
@@ -555,6 +568,15 @@ const scheduleQualityChecks = (tab) => {
   tab.qualityTimers = QUALITY_CHECK_DELAYS_MS.map((delay) => setTimeout(() => probeFlashQuality(tab), delay));
 };
 
+const isGameMapUrl = (url) => {
+  try {
+    const u = new URL(url);
+    return /(^|\.)darkorbit\.com$/i.test(u.hostname) && /internalMap/i.test(u.search);
+  } catch (_err) {
+    return false;
+  }
+};
+
 const attachViewEvents = (tab) => {
   const { view } = tab;
   view.webContents.on("page-title-updated", (_e, title) => {
@@ -574,6 +596,11 @@ const attachViewEvents = (tab) => {
     broadcastState();
     commitPendingAutofill(view.webContents);
     scheduleQualityChecks(tab);
+    if (tab.pendingLogin) {
+      tab.pendingLogin.tries += 1;
+      if (tab.pendingLogin.tries > 4) tab.pendingLogin = null;
+      else view.webContents.send("credentials:apply", tab.pendingLogin.account);
+    }
   });
 
   // Flash's own right-click menu. Replaces Electron's built-in handler so our quality
@@ -614,6 +641,15 @@ const attachViewEvents = (tab) => {
 
   view.webContents.on("new-window", (event, url) => {
     event.preventDefault();
+    // DarkOrbit's Start button opens the game map in a new window; play it in this
+    // tab instead of leaving the start page behind in another one.
+    if (isGameMapUrl(url)) {
+      tab.url = url;
+      const ua = pickUserAgent(url);
+      view.webContents.setUserAgent(ua);
+      view.webContents.loadURL(url, { userAgent: ua });
+      return;
+    }
     createTab(url, true, tab.slot);
   });
 
@@ -724,6 +760,7 @@ const createTab = (url = DEFAULT_URL, activate = true, slot = freeSlot()) => {
   } else {
     broadcastState();
   }
+  return tab;
 };
 
 const destroyTab = (tab) => {
@@ -781,6 +818,7 @@ const setActiveTab = (id) => {
     attachPanelView();
   }
   setTabActivity(tab, true);
+  boostFlashPriority();
   if (typeof tab.zoom === "number") {
     tab.view.webContents.setZoomFactor(tab.zoom);
   }
@@ -923,6 +961,7 @@ const registerShortcuts = () => {
 // (or automatically if the user opted in).
 const PERF_INTERVAL_MS = 3000;
 const boostedPids = new Set();
+const flashPriority = new Map();
 const qosPids = new Set();
 let allPids = [];
 let gpuPids = [];
@@ -1196,15 +1235,33 @@ ipcMain.handle("perf:open-log", () => {
 
 const boostFlashPriority = () => {
   if (settings.performanceMode === false) return;
-  // Flash draws through the GPU process, so both get the bump.
-  flashPids.concat(gpuPids).forEach((pid) => {
+  const P = os.constants.priority;
+  const setPriority = (pid, priority) => {
+    if (flashPriority.get(pid) === priority) return;
+    flashPriority.set(pid, priority);
+    try {
+      os.setPriority(pid, priority);
+    } catch (_err) {
+      // not fatal, the game just keeps its current priority
+    }
+  };
+  // The game in the tab you are looking at goes first. With several games open,
+  // the ones in other tabs give way when the CPU is busy; they keep running.
+  const active = findTab(activeTabId);
+  const activePid = active ? slotFlashPid.get(active.slot) : null;
+  const mapped = new Set(slotFlashPid.values());
+  flashPids.forEach((pid) => {
+    if (flashPids.length === 1 || pid === activePid || !activePid) setPriority(pid, P.PRIORITY_ABOVE_NORMAL);
+    else setPriority(pid, mapped.has(pid) ? P.PRIORITY_BELOW_NORMAL : P.PRIORITY_NORMAL);
+  });
+  for (const pid of flashPriority.keys()) if (!flashPids.includes(pid)) flashPriority.delete(pid);
+  // Flash draws through the GPU process, so it gets the bump too.
+  gpuPids.forEach((pid) => {
     if (boostedPids.has(pid)) return;
     boostedPids.add(pid);
     try {
-      os.setPriority(pid, os.constants.priority.PRIORITY_ABOVE_NORMAL);
-    } catch (_err) {
-      // not fatal, the game just keeps normal priority
-    }
+      os.setPriority(pid, P.PRIORITY_ABOVE_NORMAL);
+    } catch (_err) {}
   });
 };
 
@@ -1235,7 +1292,7 @@ const restartFlash = (slot) => {
   try {
     process.kill(pid);
   } catch (_err) {}
-  boostedPids.delete(pid);
+  flashPriority.delete(pid);
   if (target) slotFlashPid.delete(target);
   return true;
 };
@@ -1297,6 +1354,42 @@ const startPerfMonitor = () => {
 };
 
 ipcMain.handle("flash:restart", () => restartFlash());
+// A login form was submitted in a tab: that session is now this account.
+ipcMain.on("session:login", (event, username) => {
+  const tab = findTabByWebContentsId(event.sender.id);
+  const name = typeof username === "string" ? username.trim().slice(0, 64) : "";
+  if (!tab || !name) return;
+  slotAccounts[tab.slot] = name;
+  saveSlotAccounts();
+  broadcastState();
+});
+ipcMain.on("credentials:applied", (event) => {
+  const tab = findTabByWebContentsId(event.sender.id);
+  if (tab) tab.pendingLogin = null;
+});
+
+// Opens a saved account in a tab of its own: the session that last used this
+// account if it is not open (usually still logged in), otherwise an unused one.
+ipcMain.handle("credentials:open-in-new-tab", (_event, origin, account) => {
+  if (!account || !account.username || !origin) return false;
+  const open = new Set(tabs.map((t) => t.slot));
+  let slot = Object.keys(slotAccounts)
+    .map(Number)
+    .find((n) => !open.has(n) && slotAccounts[n] === account.username);
+  if (!slot) {
+    slot = 1;
+    while (open.has(slot) || slotAccounts[slot]) slot += 1;
+  }
+  let url = origin;
+  try {
+    // Game pages need the start page to log in from; use the homepage when it is the same site.
+    if (getBaseDomain(settings.homepage) === getBaseDomain(origin)) url = settings.homepage;
+  } catch (_err) {}
+  const tab = createTab(url, true, slot);
+  if (tab) tab.pendingLogin = { account: { username: account.username, password: account.password }, tries: 0 };
+  return true;
+});
+
 ipcMain.on("flash:present", (event) => {
   const tab = findTabByWebContentsId(event.sender.id);
   if (tab) tab.flashSeenAt = Date.now();
@@ -1534,6 +1627,9 @@ ipcMain.handle("cookies:clear", async () => {
     for (const partition of partitions) {
       await session.fromPartition(partition).clearStorageData();
     }
+    slotAccounts = {};
+    saveSlotAccounts();
+    broadcastState();
     await session.defaultSession.clearStorageData();
     const targetTab = findTab(activeTabId) || tabs[0];
     if (targetTab) {

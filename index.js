@@ -38,6 +38,10 @@ try {
 } catch (_err) {
   slotAccounts = {};
 }
+// Slots that have actually logged in or been opened via "open account in new tab"
+// during this app session. Only these show the account name in the tab group label;
+// stale names from a previous run stay hidden until confirmed by a login.
+const confirmedSlots = new Set();
 const saveSlotAccounts = () => {
   try {
     fs.writeFileSync(SESSION_ACCOUNTS_FILE, JSON.stringify(slotAccounts, null, 2), "utf8");
@@ -388,7 +392,7 @@ const broadcastState = () => {
       url: tab.url,
       isLoading: tab.view.webContents.isLoading(),
       slot: tab.slot,
-      account: slotAccounts[tab.slot] || "",
+      account: confirmedSlots.has(tab.slot) ? (slotAccounts[tab.slot] || "") : "",
     })),
     canGoBack,
     canGoForward,
@@ -1363,6 +1367,7 @@ ipcMain.on("session:login", (event, username) => {
   const name = typeof username === "string" ? username.trim().slice(0, 64) : "";
   if (!tab || !name) return;
   slotAccounts[tab.slot] = name;
+  confirmedSlots.add(tab.slot);
   saveSlotAccounts();
   broadcastState();
 });
@@ -1388,6 +1393,9 @@ ipcMain.handle("credentials:open-in-new-tab", (_event, origin, account) => {
     // Game pages need the start page to log in from; use the homepage when it is the same site.
     if (getBaseDomain(settings.homepage) === getBaseDomain(origin)) url = settings.homepage;
   } catch (_err) {}
+  slotAccounts[slot] = account.username;
+  confirmedSlots.add(slot);
+  saveSlotAccounts();
   const tab = createTab(url, true, slot);
   if (tab) tab.pendingLogin = { account: { username: account.username, password: account.password }, tries: 0 };
   return true;
@@ -1638,6 +1646,7 @@ ipcMain.handle("cookies:clear", async () => {
       await session.fromPartition(partition).clearStorageData();
     }
     slotAccounts = {};
+    confirmedSlots.clear();
     saveSlotAccounts();
     broadcastState();
     await session.defaultSession.clearStorageData();

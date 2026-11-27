@@ -133,7 +133,7 @@ const loadSettings = () => {
       useCustomUA: false,
       customUserAgent: "",
       theme: "dark",
-      saveLogin: false,
+      saveLogin: true,
     };
   }
 };
@@ -150,11 +150,9 @@ settings = Object.assign(
     useCustomUA: false,
     customUserAgent: "",
     theme: "dark",
-    saveLogin: false,
+    saveLogin: true,
     performanceMode: true,
     flashQuality: "low",
-    flashMemoryLimitMB: 1400,
-    flashAutoRestart: true,
   },
   settings
 );
@@ -258,6 +256,9 @@ try {
   "dnsServer",
   "customDns",
   "autoLogin",
+  "flashMemoryLimitMB",
+  "flashAutoRestart",
+  "flashAutoRestartOffDefault",
 ].forEach((key) => {
   delete settings[key];
 });
@@ -885,11 +886,9 @@ const createMainWindow = () => {
   ensurePanelView();
   mainWindow.on("resize", layoutActiveView);
   mainWindow.on("focus", () => {
-    unfocusedSince = 0;
     registerShortcuts();
   });
   mainWindow.on("blur", () => {
-    unfocusedSince = Date.now();
     globalShortcut.unregisterAll();
   });
   mainWindow.on("enter-full-screen", () => {
@@ -964,9 +963,12 @@ const registerShortcuts = () => {
 
 // ---- Flash memory watchdog ----
 // Flash leaks inside its own plugin process; the only real cure is a fresh
-// process. We watch it, show the number in the toolbar and restart on demand
-// (or automatically if the user opted in).
+// process. We watch it, warn at 2300 MB in the toolbar, and only auto-refresh
+// if a slot stays over 2300 MB for 90 seconds while the player is AFK.
 const PERF_INTERVAL_MS = 3000;
+const FLASH_MEMORY_LIMIT_MB = 2300;
+const FLASH_OVER_LIMIT_MS = 90000;
+const AFK_IDLE_SECONDS = 90;
 const boostedPids = new Set();
 const flashPriority = new Map();
 const qosPids = new Set();
@@ -1057,14 +1059,13 @@ let flashPids = [];
 // slot -> pid of that session's Flash process, and per-slot auto-refresh times
 const slotFlashPid = new Map();
 const slotLastRestart = new Map();
+const slotOverLimitSince = new Map();
 let flashBySlot = new Map();
 let lastTrim = 0;
 let trimCooldown = 60000;
 let trimBusy = false;
 let perfTimer = null;
 let sleepBlockerId = null;
-// When the client window last stopped being the focused one (0 = focused).
-let unfocusedSince = 0;
 
 // A game left running must not be suspended by Windows going to sleep.
 const syncSleepBlocker = (flashRunning) => {
@@ -1180,7 +1181,7 @@ const collectPerfStats = () => {
     gpuCpu: Math.round(gpuCpu * CORE_COUNT),
     tabCpu: Math.round(tabCpu * CORE_COUNT),
     flashRunning: pids.length > 0,
-    limitMB: Number(settings.flashMemoryLimitMB) || 0,
+    limitMB: FLASH_MEMORY_LIMIT_MB,
   };
 };
 
@@ -1300,21 +1301,21 @@ const restartFlash = (slot) => {
     process.kill(pid);
   } catch (_err) {}
   flashPriority.delete(pid);
-  if (target) slotFlashPid.delete(target);
+  if (target) {
+    slotFlashPid.delete(target);
+    slotOverLimitSince.delete(target);
+  }
   return true;
 };
 
-// Never refresh Flash in the middle of play. The player counts as away once
-// the client has been in the background (another window in front, or
-// minimised) for 20 seconds, or mouse and keyboard have been untouched for a
-// minute and a half.
-const playerIsAway = (now) => {
-  const inBackground = unfocusedSince > 0 && now - unfocusedSince >= 20000;
+// Never refresh Flash in the middle of play. The player counts as away only
+// once mouse and keyboard have been untouched for a minute and a half (AFK).
+const playerIsAway = () => {
   let idleSeconds = 0;
   try {
     idleSeconds = powerMonitor.getSystemIdleTime();
   } catch (_err) {}
-  return inBackground || idleSeconds >= 90;
+  return idleSeconds >= AFK_IDLE_SECONDS;
 };
 
 const perfTick = () => {
@@ -1330,10 +1331,17 @@ const perfTick = () => {
   // free it frees nothing useful and just makes Flash fetch its pages back, so
   // it is skipped unless less than a fifth of the system's memory is left.
   const memoryIsTight = os.freemem() < os.totalmem() * 0.2;
-  const overLimit = stats.limitMB > 0 ? [...flashBySlot.entries()].filter(([, f]) => f.commitMB >= stats.limitMB) : [];
+  const overLimit = [...flashBySlot.entries()].filter(([, f]) => f.commitMB >= FLASH_MEMORY_LIMIT_MB);
+  const overSlots = new Set(overLimit.map(([slot]) => slot));
+  for (const slot of slotOverLimitSince.keys()) {
+    if (!overSlots.has(slot)) slotOverLimitSince.delete(slot);
+  }
+  overLimit.forEach(([slot]) => {
+    if (!slotOverLimitSince.has(slot)) slotOverLimitSince.set(slot, now);
+  });
   if (
     memoryIsTight &&
-    overLimit.some(([, f]) => f.ramMB >= stats.limitMB) &&
+    overLimit.some(([, f]) => f.ramMB >= FLASH_MEMORY_LIMIT_MB) &&
     now - lastTrim > trimCooldown &&
     !psBusy
   ) {
@@ -1341,13 +1349,16 @@ const perfTick = () => {
     // that memory; trimming it again and again would only cost FPS, so back off.
     trimCooldown = lastTrim && now - lastTrim < trimCooldown * 2 ? Math.min(trimCooldown * 2, 600000) : 60000;
     lastTrim = now;
-    trimFlashMemory(overLimit.filter(([, f]) => f.ramMB >= stats.limitMB).map(([, f]) => f.pid));
+    trimFlashMemory(overLimit.filter(([, f]) => f.ramMB >= FLASH_MEMORY_LIMIT_MB).map(([, f]) => f.pid));
   }
-  if (settings.flashAutoRestart && playerIsAway(now)) {
-    // Each game over the limit is refreshed on its own; the others keep running.
+  if (playerIsAway()) {
+    // Only refresh automatically if Flash stayed over 2300 MB for 90s while the player is AFK.
     overLimit.forEach(([slot]) => {
+      const overSince = slotOverLimitSince.get(slot) || now;
+      if (now - overSince < FLASH_OVER_LIMIT_MS) return;
       if (now - (slotLastRestart.get(slot) || 0) <= 120000) return;
       slotLastRestart.set(slot, now);
+      slotOverLimitSince.delete(slot);
       restartFlash(slot);
     });
   }

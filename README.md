@@ -43,10 +43,8 @@ See [CHANGELOG.md](CHANGELOG.md) for what changed in each release.
 Recommended settings (⚙️ in the toolbar):
 
 - **Flash performance boost**: on
-- **Memory limit**: 1400 MB
-- **Refresh Flash while I’m away**: on
 
-Why the last one matters: DarkOrbit’s Flash client piles up memory while it runs and, after roughly half an hour, starts to stutter. Only reloading the game clears that. The client does it for you when Flash is over the limit and you have switched to another window for 20 seconds or left mouse and keyboard alone for 90 seconds. You can also press **Ctrl+Shift+R** at a safe moment.
+The top bar watches Flash memory and warns you once it passes **2300 MB** so you can press **Ctrl+Shift+R** at a safe moment to reload only that tab. It never refreshes while you play; it only resets automatically if memory stays over 2300 MB for 90 seconds while you are AFK (no mouse or keyboard activity for 90 seconds).
 
 If a session still gets slow, open ⋮ → **Show performance log** and keep the file; it records Flash’s memory and CPU every few seconds.
 

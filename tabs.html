@@ -1181,7 +1181,7 @@
               <strong>Remember logins</strong>
               <span>Save the username and password when you log in. Stored on this computer only.</span>
             </div>
-            <input class="switch" type="checkbox" id="save-login" />
+            <input class="switch" type="checkbox" id="save-login" checked />
           </div>
 
           <div class="section-title">Performance</div>
@@ -1209,20 +1209,6 @@
               <option value="default">Let the game decide</option>
             </select>
             <span class="hint">The quality in Flash's right-click menu. The client keeps it on this setting even when the game switches it back to High. Low skips edge smoothing, so every frame is cheaper. Applies on the next page load.</span>
-          </div>
-
-          <div class="section-title">Flash memory</div>
-          <div class="field">
-            <label for="flash-memory-limit">Memory limit (MB)</label>
-            <input class="input" type="text" inputmode="numeric" id="flash-memory-limit" placeholder="1400" />
-            <span class="hint">The game needs about 800 MB once a map is loaded. Above this limit the game usually starts to stutter.</span>
-          </div>
-          <div class="row">
-            <div class="row-text">
-              <strong>Refresh Flash while I'm away</strong>
-              <span>Above the limit, reloads the game the moment you switch to another window for 20 seconds or leave mouse and keyboard alone for 90 seconds. Never while you play. Press Ctrl+Shift+R to do it yourself at a safe moment.</span>
-            </div>
-            <input class="switch" type="checkbox" id="flash-auto-restart" />
           </div>
 
           <div class="section-title">Advanced</div>
@@ -1329,8 +1315,6 @@
       const customUAInput = $("custom-ua");
       const gpuAcceleration = $("gpu-acceleration");
       const performanceMode = $("performance-mode");
-      const flashMemoryLimit = $("flash-memory-limit");
-      const flashAutoRestart = $("flash-auto-restart");
       const flashQuality = $("flash-quality");
       const saveLogin = $("save-login");
       const clientNameInput = $("client-name");
@@ -1363,11 +1347,9 @@
         useCustomUA: false,
         customUserAgent: "",
         theme: "dark",
-        saveLogin: false,
+        saveLogin: true,
         performanceMode: true,
         flashQuality: "low",
-        flashMemoryLimitMB: 1400,
-        flashAutoRestart: true,
       };
 
       const state = { tabs: [], activeId: null };
@@ -1960,9 +1942,7 @@
         saveLogin.checked = !!settings.saveLogin;
         gpuAcceleration.checked = settings.gpuAcceleration !== false;
         performanceMode.checked = settings.performanceMode !== false;
-        flashMemoryLimit.value = settings.flashMemoryLimitMB != null ? settings.flashMemoryLimitMB : 1400;
         flashQuality.value = settings.flashQuality || "low";
-        flashAutoRestart.checked = !!settings.flashAutoRestart;
         useCustomUA.checked = !!settings.useCustomUA;
         customUAInput.value = settings.customUserAgent || "";
         syncUaField();
@@ -1985,11 +1965,9 @@
           gpuAcceleration: !!gpuAcceleration.checked,
           saveLogin: !!saveLogin.checked,
           performanceMode: !!performanceMode.checked,
-          flashMemoryLimitMB: Math.max(0, parseInt(flashMemoryLimit.value, 10) || 0),
           flashQuality: flashQuality.value || "low",
           // saving settings gives the GPU switches another chance after a driver update
           gpuSafeMode: false,
-          flashAutoRestart: !!flashAutoRestart.checked,
           clientName: clientNameInput.value.trim() || "Your Name",
           clientIcon: pendingIcon,
           rankIcon: pendingIcon ? "none" : selectedRank,

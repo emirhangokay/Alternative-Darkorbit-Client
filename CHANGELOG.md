@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.6.3
+
+### Changes
+- **Simplified Flash memory watchdog:** Removed the manual Memory limit and **Refresh Flash while I'm away** toggles from Settings. The top bar now warns once Flash passes **2300 MB** so you can refresh with **Ctrl+Shift+R** without interrupting active play.
+- **AFK-only auto-refresh:** Flash only resets automatically when it stays over **2300 MB** for **90 seconds** while you are AFK (90 seconds without mouse or keyboard input); switching to another window or monitor no longer triggers a reload.
+- **Remember logins enabled by default:** Saving login credentials is now turned on out of the box on new installs.
+
 ## 2.6.2
 
 ### Fixes
